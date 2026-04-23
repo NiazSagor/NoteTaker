@@ -1,11 +1,7 @@
 package com.example.notetaker.core.data.di
 
-import com.example.notetaker.core.data.repository.GridElementRepositoryImpl
-import com.example.notetaker.core.data.repository.NoteRepositoryImpl
-import com.example.notetaker.core.data.repository.WorkspaceRepositoryImpl
-import com.example.notetaker.core.domain.repository.GridElementRepository
-import com.example.notetaker.core.domain.repository.NoteRepository
-import com.example.notetaker.core.domain.repository.WorkspaceRepository
+import com.example.notetaker.core.data.repository.*
+import com.example.notetaker.core.domain.repository.*
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -33,4 +29,22 @@ abstract class RepositoryModule {
     abstract fun bindGridElementRepository(
         gridElementRepositoryImpl: GridElementRepositoryImpl
     ): GridElementRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindNoteImageRepository(
+        noteImageRepositoryImpl: NoteImageRepositoryImpl
+    ): NoteImageRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindConflictRepository(
+        conflictRepositoryImpl: ConflictRepositoryImpl
+    ): ConflictRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindAuthRepository(
+        authRepositoryImpl: AuthRepositoryImpl
+    ): AuthRepository
 }

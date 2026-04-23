@@ -15,6 +15,7 @@ interface NoteImageDao {
     @Upsert
     suspend fun upsert(image: NoteImageEntity)
 
+    @Transaction
     @Upsert
     suspend fun upsertAll(images: List<NoteImageEntity>)
 

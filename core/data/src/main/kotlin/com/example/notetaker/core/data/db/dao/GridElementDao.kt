@@ -15,6 +15,7 @@ interface GridElementDao {
     @Upsert
     suspend fun upsert(element: GridElementEntity)
 
+    @Transaction
     @Upsert
     suspend fun upsertAll(elements: List<GridElementEntity>)
 
