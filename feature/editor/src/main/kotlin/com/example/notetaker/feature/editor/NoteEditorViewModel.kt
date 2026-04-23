@@ -1,10 +1,13 @@
 package com.example.notetaker.feature.editor
 
+import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.WorkManager
 import com.example.notetaker.core.data.db.entity.NoteEntity
 import com.example.notetaker.core.data.db.entity.NoteImageEntity
+import com.example.notetaker.core.data.sync.CloudinaryUploadWorker
 import com.example.notetaker.core.domain.base.Result
 import com.example.notetaker.core.domain.usecase.auth.ObserveUserIdUseCase
 import com.example.notetaker.core.domain.usecase.image.AddNoteImageParams
@@ -16,6 +19,7 @@ import com.example.notetaker.core.domain.usecase.note.ObserveNoteUseCase
 import com.example.notetaker.core.domain.usecase.note.UpdateNoteParams
 import com.example.notetaker.core.domain.usecase.note.UpdateNoteUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -57,7 +61,8 @@ class NoteEditorViewModel @Inject constructor(
     private val addNoteImageUseCase: AddNoteImageUseCase,
     private val updateNoteImageRotationUseCase: UpdateNoteImageRotationUseCase,
     private val observeUserIdUseCase: ObserveUserIdUseCase,
-    private val savedStateHandle: SavedStateHandle
+    private val savedStateHandle: SavedStateHandle,
+    @ApplicationContext private val context: Context // Inject context to enqueue worker
 ) : ViewModel() {
 
     private val noteId: String = checkNotNull(savedStateHandle["noteId"])
@@ -88,7 +93,7 @@ class NoteEditorViewModel @Inject constructor(
             .onEach { result ->
                 if (result is Result.Success && result.data != null) {
                     val note = result.data
-                    _uiState.update { 
+                    _uiState.update {
                         it.copy(
                             note = note,
                             draftTitle = savedStateHandle["draftTitle"] ?: note.title,
@@ -141,8 +146,8 @@ class NoteEditorViewModel @Inject constructor(
                 _uiState.update { it.copy(interactionState = ImageInteractionState.Selected(event.imageId)) }
             }
             is NoteEditorEvent.OnRotationStarted -> {
-                _uiState.update { 
-                    it.copy(interactionState = ImageInteractionState.Rotating(event.imageId, event.initialDegrees, true)) 
+                _uiState.update {
+                    it.copy(interactionState = ImageInteractionState.Rotating(event.imageId, event.initialDegrees, true))
                 }
             }
             is NoteEditorEvent.OnRotationChanged -> {
@@ -178,9 +183,16 @@ class NoteEditorViewModel @Inject constructor(
                     workspaceId = workspaceId,
                     localUri = uri,
                     userId = userId,
-                    orderInNote = uiState.value.images.size
+                    orderInNote = uiState.value.images.size // Append to the end
                 )
-            )
+            ).onSuccess {
+                // Once the NoteImageEntity is saved locally with PENDING status,
+                // enqueue the CloudinaryUploadWorker to handle the actual file upload.
+                CloudinaryUploadWorker.enqueue(context)
+            }.onFailure { error ->
+                // Handle potential errors during local save of image metadata
+                Log.e("NoteEditorViewModel", "Failed to add image locally: ${error.message}", error)
+            }
         }
     }
 

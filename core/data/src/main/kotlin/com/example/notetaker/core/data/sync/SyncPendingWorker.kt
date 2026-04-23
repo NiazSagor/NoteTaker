@@ -1,6 +1,7 @@
 package com.example.notetaker.core.data.sync
 
 import android.content.Context
+import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.*
 import com.example.notetaker.core.data.db.dao.ConflictDao
@@ -30,90 +31,79 @@ class SyncPendingWorker @AssistedInject constructor(
     private val firestoreSource: FirestoreSource
 ) : CoroutineWorker(appContext, workerParams) {
 
+    private val TAG = "SyncPendingWorker"
+    private val workspaceId = "global_workspace" // Hardcoded for now
+
     override suspend fun doWork(): Result {
         return withContext(Dispatchers.IO) {
-            try {
-                val workspaceId = "global_workspace" // Hardcoded for now
+            var overallSuccess = true // Assume success initially
 
+            try {
                 // Fetch pending/errored local changes
                 val pendingNotes = noteDao.getPendingOrErrorNotes()
                 val pendingGridElements = gridElementDao.getPendingOrErrorGridElements()
                 val pendingNoteImages = noteImageDao.getPendingOrErrorNoteImages()
 
-                val allPendingItems = mutableListOf<suspend () -> Boolean>() // List of suspend functions returning success status
-
-                // Process Notes
+                // --- Process Notes ---
                 if (pendingNotes.isNotEmpty()) {
-                    allPendingItems.add {
-                        pendingNotes.forEach { note ->
-                            try {
-                                // We assume that if a note is PENDING/ERROR, it does NOT have a TRUE_CONFLICT state
-                                // that needs to be resolved BEFORE pushing. Conflict resolution happens on read path.
-                                firestoreSource.upsertNote(workspaceId, note)
-                                noteDao.updateSyncStatus(note.id, SyncStatus.SYNCED)
-                            } catch (e: Exception) {
-                                noteDao.updateSyncStatus(note.id, SyncStatus.ERROR)
-                                // Log error details here
-                                return@forEach false // Indicate failure for this note
-                            }
+                    pendingNotes.forEach { note ->
+                        try {
+                            // Push local note changes to Firestore
+                            firestoreSource.upsertNote(workspaceId, note)
+                            noteDao.updateSyncStatus(note.id, SyncStatus.SYNCED)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to sync note ${note.id}: ${e.message}", e)
+                            noteDao.updateSyncStatus(note.id, SyncStatus.ERROR)
+                            overallSuccess = false // Mark as failed if any note sync fails
                         }
-                        true // Indicate success for this batch
                     }
                 }
 
-                // Process Grid Elements
+                // --- Process Grid Elements ---
                 if (pendingGridElements.isNotEmpty()) {
-                    allPendingItems.add {
-                        pendingGridElements.forEach { element ->
-                            try {
-                                firestoreSource.upsertGridElement(workspaceId, element)
-                                gridElementDao.updateSyncStatus(element.id, SyncStatus.SYNCED)
-                            } catch (e: Exception) {
-                                gridElementDao.updateSyncStatus(element.id, SyncStatus.ERROR)
-                                // Log error
-                                return@forEach false
-                            }
+                    pendingGridElements.forEach { element ->
+                        try {
+                            firestoreSource.upsertGridElement(workspaceId, element)
+                            gridElementDao.updateSyncStatus(element.id, SyncStatus.SYNCED)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to sync grid element ${element.id}: ${e.message}", e)
+                            gridElementDao.updateSyncStatus(element.id, SyncStatus.ERROR)
+                            overallSuccess = false
                         }
-                        true
                     }
                 }
 
-                // Process Note Images
+                // --- Process Note Images ---
                 if (pendingNoteImages.isNotEmpty()) {
-                    allPendingItems.add {
-                        pendingNoteImages.forEach { image ->
-                            try {
-                                // NoteImage upload might be more complex (e.g., Cloudinary first)
-                                // For now, assume direct Firestore upsert for metadata.
-                                firestoreSource.upsertNoteImage(workspaceId, image.noteId, image)
-                                noteImageDao.updateSyncStatus(image.id, SyncStatus.SYNCED)
-                            } catch (e: Exception) {
-                                noteImageDao.updateSyncStatus(image.id, SyncStatus.ERROR)
-                                // Log error
-                                return@forEach false
-                            }
+                    pendingNoteImages.forEach { image ->
+                        try {
+                            // This syncs the metadata (like remoteImageUrl, orderInNote) to Firestore.
+                            // The actual image file upload is handled by CloudinaryUploadWorker.
+                            // We assume CloudinaryUploadWorker has already run and set remoteImageUrl and syncStatus to PENDING.
+                            firestoreSource.upsertNoteImage(workspaceId, image.noteId, image)
+                            noteImageDao.updateSyncStatus(image.id, SyncStatus.SYNCED)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to sync note image ${image.id}: ${e.message}", e)
+                            noteImageDao.updateUploadStatus(image.id, UploadStatus.FAILED) // Also mark upload as failed if metadata sync fails
+                            noteImageDao.updateSyncStatus(image.id, SyncStatus.ERROR)
+                            overallSuccess = false
                         }
-                        true
                     }
                 }
 
-                // Execute all pending operations concurrently
-                val results = allPendingItems.map { async { it() } }.awaitAll()
-                val overallSuccess = results.all { it }
-
+                // Determine final result
                 if (overallSuccess) {
-                    Result.success() // All items processed without critical errors that require retry
+                    Result.success()
                 } else {
-                    // If any item failed to sync and was marked ERROR, we might want to retry.
-                    // For simplicity, let's retry if any operation reported false (failure).
-                    // A more granular approach could check if there are still PENDING items.
+                    // If any item failed, retry the entire worker.
+                    // A more sophisticated approach could check if there are still PENDING items.
                     Result.retry()
                 }
 
             } catch (e: Exception) {
-                // Handle general errors during the sync process
-                // Log.e("SyncWorker", "Sync failed", e)
-                Result.retry() // Retry on failure
+                // Handle unexpected errors during the sync process
+                Log.e(TAG, "Unexpected error during sync process", e)
+                Result.retry() // Retry on general failure
             }
         }
     }
@@ -138,7 +128,7 @@ class SyncPendingWorker @AssistedInject constructor(
 
             WorkManager.getInstance(context).enqueueUniqueWork(
                 SYNC_WORKER_TAG,
-                ExistingWorkPolicy.KEEP, // Keep the existing worker if it's already scheduled
+                ExistingWorkPolicy.KEEP, // Keep existing work if it's already scheduled
                 request
             )
         }

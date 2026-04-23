@@ -1,13 +1,14 @@
 package com.example.notetaker.core.data.sync
 
 import android.content.Context
+import android.util.Log // For logging
 import androidx.hilt.work.HiltWorker
 import androidx.work.*
 import com.example.notetaker.core.data.db.dao.NoteImageDao
 import com.example.notetaker.core.data.db.entity.NoteImageEntity
 import com.example.notetaker.core.domain.model.SyncStatus
 import com.example.notetaker.core.domain.model.UploadStatus
-import com.example.notetaker.core.network.cloudinary.CloudinaryUploadClient // Assuming this client exists or will be created
+import com.example.notetaker.core.network.cloudinary.CloudinaryUploadClient
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
@@ -20,29 +21,28 @@ class CloudinaryUploadWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted workerParams: WorkerParameters,
     private val noteImageDao: NoteImageDao,
-    private val cloudinaryUploadClient: CloudinaryUploadClient // Inject the Cloudinary client
+    private val cloudinaryUploadClient: CloudinaryUploadClient
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result {
         return withContext(Dispatchers.IO) {
             try {
-                val pendingImages = noteImageDao.getImagesToUpload() // Needs implementation in NoteImageDao
+                val imagesToUpload = noteImageDao.getImagesToUpload()
 
-                if (pendingImages.isEmpty()) {
+                if (imagesToUpload.isEmpty()) {
                     return@withContext Result.success() // Nothing to upload
                 }
 
-                val uploadResults = mutableListOf<suspend () -> Boolean>()
-
-                pendingImages.forEach { image ->
-                    uploadResults.add {
+                // Use async for concurrent uploads
+                val uploadResults = imagesToUpload.map { image ->
+                    async {
                         try {
                             // 1. Mark as UPLOADING
                             noteImageDao.updateUploadStatus(image.id, UploadStatus.UPLOADING)
 
                             // 2. Upload to Cloudinary
-                            // This requires a CloudinaryUploadClient implementation
-                            val remoteUrl = cloudinaryUploadClient.uploadImage(image.localImageUri ?: "") // Pass local URI
+                            // This calls the injected client's uploadImage method.
+                            val remoteUrl = cloudinaryUploadClient.uploadImage(image.localImageUri ?: "")
 
                             // 3. Update local entity with remote URL and status
                             val updatedImage = image.copy(
@@ -50,28 +50,30 @@ class CloudinaryUploadWorker @AssistedInject constructor(
                                 uploadStatus = UploadStatus.DONE,
                                 syncStatus = SyncStatus.PENDING // Mark for main sync worker to push metadata to Firestore
                             )
-                            noteImageDao.upsert(updatedLocalNote) // Should be updatedImage
+                            noteImageDao.upsert(updatedImage) // Correctly use updatedImage
 
                             true // Indicate success for this image
                         } catch (e: Exception) {
+                            Log.e("CloudinaryWorker", "Failed to upload image ${image.id} from ${image.localImageUri}", e)
                             noteImageDao.updateUploadStatus(image.id, UploadStatus.FAILED)
-                            // Log error details here
                             false // Indicate failure for this image
                         }
                     }
                 }
 
-                val overallSuccess = uploadResults.map { async { it() } }.awaitAll().all { it }
+                val results = uploadResults.awaitAll()
+                val overallSuccess = results.all { it }
 
                 if (overallSuccess) {
                     Result.success()
                 } else {
-                    Result.retry() // Retry if any upload failed
+                    // If any upload failed, retry the entire worker later
+                    Result.retry()
                 }
 
             } catch (e: Exception) {
                 // Handle general errors during the upload process
-                // Log.e("CloudinaryWorker", "Cloudinary upload failed", e)
+                Log.e("CloudinaryWorker", "General error during Cloudinary upload", e)
                 Result.retry() // Retry on failure
             }
         }
@@ -103,7 +105,3 @@ class CloudinaryUploadWorker @AssistedInject constructor(
         }
     }
 }
-
-// Placeholder DAO extensions - these need to be implemented in NoteImageDao
-// suspend fun NoteImageDao.getImagesToUpload(): List<NoteImageEntity> = emptyList()
-// suspend fun NoteImageDao.updateUploadStatus(id: String, status: UploadStatus) { /* ... */ }
