@@ -10,11 +10,8 @@ import com.example.notetaker.core.domain.di.IoDispatcher
 import com.example.notetaker.core.domain.repository.ConflictRepository
 import com.example.notetaker.core.domain.repository.GridElementRepository
 import com.example.notetaker.core.network.firebase.FirestoreSource
-import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -23,10 +20,11 @@ class GridElementRepositoryImpl @Inject constructor(
     private val gridElementDao: GridElementDao,
     private val conflictDao: ConflictDao,
     private val firestoreSource: FirestoreSource,
-    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    private val appScope: CoroutineScope // Inject application-scoped CoroutineScope
 ) : GridElementRepository {
 
-    private val workspaceId = "global_workspace" // Assuming a single global workspace
+    private val workspaceId = "global_workspace"
 
     init {
         observeRemoteGridElements()
@@ -44,7 +42,7 @@ class GridElementRepositoryImpl @Inject constructor(
     override suspend fun saveGridElement(element: GridElementEntity) = withContext(ioDispatcher) {
         // Local save first (optimistic update)
         gridElementDao.upsert(element)
-        // Remote save is handled by WorkManager or FirestoreSource directly
+        // Remote save is handled by sync mechanism (WorkManager)
     }
 
     override suspend fun softDeleteGridElement(id: String) = withContext(ioDispatcher) {
@@ -52,9 +50,11 @@ class GridElementRepositoryImpl @Inject constructor(
     }
 
     private fun observeRemoteGridElements() {
-        flow {
-            emitAll(firestoreSource.observeGridElements(workspaceId))
-        }
+        // Launch the observation in the application's scope
+        appScope.launch {
+            flow {
+                emitAll(firestoreSource.observeGridElements(workspaceId))
+            }
             .flowOn(ioDispatcher)
             .onEach { remoteElements ->
                 remoteElements.forEach { remoteElement ->
@@ -70,10 +70,9 @@ class GridElementRepositoryImpl @Inject constructor(
                         when (conflictType) {
                             ConflictType.REMOTE_ADVANCED -> {
                                 // Case 1: Safe to apply remote changes directly.
-                                // Preserve localVersion for future edits.
                                 val updatedLocalElement = remoteElement.copy(
                                     localVersion = localElement.localVersion,
-                                    syncStatus = localElement.syncStatus // Preserve local sync status if not SYNCED
+                                    syncStatus = localElement.syncStatus
                                 )
                                 gridElementDao.upsert(updatedLocalElement)
                             }
@@ -94,8 +93,8 @@ class GridElementRepositoryImpl @Inject constructor(
                                     id = UUID.randomUUID().toString(),
                                     noteId = remoteElement.noteId ?: "", // GridElement might not have noteId directly, needs mapping
                                     workspaceId = workspaceId,
-                                    localSnapshot = gridElementDao.convertGridElementEntityToJson(localElement), // Need converter
-                                    remoteSnapshot = gridElementDao.convertGridElementEntityToJson(remoteElement), // Need converter
+                                    localSnapshot = gridElementDao.convertGridElementEntityToJson(localElement) ?: "{}", // Add null safety or default
+                                    remoteSnapshot = gridElementDao.convertGridElementEntityToJson(remoteElement) ?: "{}", // Add null safety or default
                                     localVersion = localElement.localVersion,
                                     remoteVersion = remoteElement.remoteVersion,
                                     detectedAt = System.currentTimeMillis(),
@@ -107,16 +106,18 @@ class GridElementRepositoryImpl @Inject constructor(
                         }
                     } else {
                         // Local element doesn't exist, but remote does.
-                        // Handle new remote elements (e.g., created by another user).
+                        // Handle new remote elements.
                         if (!remoteElement.isDeleted) {
                             gridElementDao.upsert(remoteElement.copy(syncStatus = SyncStatus.SYNCED))
                         }
                     }
                 }
             }
-            .launchIn(viewModelScope) // Manage scope appropriately for a singleton repository.
+            .catch { e ->
+                // Proper error handling for the flow
+                // Log.e("GridElementSync", "Error observing remote grid elements", e)
+            }
+            .launchIn(appScope) // Use the injected application scope
+        }
     }
 }
-
-// Note: Need to add JSON conversion helpers to GridElementDao or a separate converter.
-// Also need updateSyncStatus method in GridElementDao.

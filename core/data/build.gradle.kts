@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.serialization) // Apply serialization plugin
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
 }
@@ -35,7 +36,10 @@ dependencies {
     ksp(libs.room.compiler)
 
     implementation(libs.datastore.preferences)
-    implementation(libs.androidx.work.runtime-ktx)
+    implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.hilt.work)
     ksp(libs.androidx.hilt.compiler)
+
+    // Kotlinx Serialization
+    implementation(libs.kotlinx.serialization.json)
 }
