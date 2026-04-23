@@ -281,6 +281,11 @@ data class ConflictEntity(
     val localVersion: Int,
     val remoteVersion: Int,
     val detectedAt: Long,
+     // Add these two fields to ConflictEntity
+     val expectedVersion: Int,        // remoteVersion captured when conflict was detected
+                                 // passed to Firestore transaction as baseline check
+    val conflictRoundCount: Int = 0  // how many times this conflict has re-triggered
+                                 // show warning banner in UI when >= 3
     val resolvedAt: Long? = null,
     val isResolved: Boolean = false,
     val resolutionStrategy: ResolutionStrategy? = null,
@@ -337,6 +342,15 @@ Each synced entity tracks two version counters:
 
 On every Firestore write, the document's `remoteVersion` is incremented by 1.
 
+ADDITIONAL RULE:
+The expectedVersion is captured at the moment conflict detection fires
+(when the remote snapshot arrives and Case 4 is identified).
+This value is held in the ConflictEntity and passed to the push
+transaction as the baseline to check against.
+It is NOT re-read from Room just before pushing — it must be the
+version that was current when the conflict was first detected,
+otherwise the check loses its meaning.
+
 ### 6.2 Conflict Detection Logic
 
 Run this check every time a Firestore snapshot arrives for a note:
@@ -374,6 +388,19 @@ ONLY prompt the user (show ConflictResolutionScreen) in CASE 4.
 Cases 1, 2, 3 are handled silently or with a non-blocking snackbar.
 Never block the user on a conflict for a note they are not currently viewing.
 Show a badge/indicator on conflicted note tiles in the workspace grid.
+
+RE-PROMPT RULE:
+If a ConflictOnPushException is caught during resolution push
+AND re-evaluation shows a large gap (Case 4 again):
+    Dismiss current resolution UI
+    Create a new ConflictEntity with fresh snapshots
+    Re-show conflict UI with updated versions
+    Increment a conflictRoundCount field on ConflictEntity
+
+If conflictRoundCount >= 3:
+    Show warning banner above conflict UI:
+    "This note is being actively edited by others"
+    This does not block resolution — just informs the user
 
 ### 6.4 Conflict Resolution UI
 
@@ -428,6 +455,21 @@ User makes any change
     ↓
    Success → set syncStatus = SYNCED, set remoteVersion = incoming version
    Failure → stays PENDING, WorkManager will retry
+
+PUSH RULE (CONFLICT RESOLUTIONS ONLY):
+Never use .set() or .update() directly when pushing a conflict resolution.
+Always use a Firestore Transaction that:
+  1. Reads current remoteVersion inside the transaction
+  2. Compares against expectedVersion (the version we resolved against)
+  3. Writes only if they match → increment remoteVersion by 1
+  4. Throws ConflictOnPushException if they do not match
+  5. Caller catches exception → re-runs conflict detection
+     against the newly fetched version
+
+Normal edits (non-resolution) do NOT need this transaction check.
+The Firestore snapshot listener continuously guards normal edits.
+The transaction check is specifically for the window where the user
+is inside the conflict resolution UI and the listener is not acting.
 ```
 
 ### 7.2 Read Path (Remote → Local)
@@ -470,6 +512,44 @@ Backoff: EXPONENTIAL, initial 10s
 
 Worker queries Room for all entities with syncStatus = PENDING or ERROR,
 processes them in createdAt ASC order (FIFO), retries on failure.
+
+### 7.5 Conflict Push — Transaction With Retry
+
+When user confirms a conflict resolution, use this flow:
+
+var retryCount = 0
+val maxRetries = 3
+
+while retryCount < maxRetries:
+    try:
+        START Firestore transaction
+            READ current remoteVersion from Firestore
+            IF currentRemoteVersion != expectedVersion:
+                THROW ConflictOnPushException(
+                    expected = expectedVersion,
+                    actual = currentRemoteVersion
+                )
+            WRITE resolved content
+            SET remoteVersion = currentRemoteVersion + 1
+        END transaction
+        BREAK  ← success, exit loop
+
+    catch ConflictOnPushException:
+        retryCount++
+
+        IF retryCount >= maxRetries:
+            Save resolved draft locally in Room
+            Show message: "This note is being heavily edited.
+                           Your version is saved. Try again later."
+            BREAK
+
+        Re-run conflict detection against e.actualVersion
+            IF gap is small → silent merge → retry push
+            IF gap is large → show conflict UI again with new snapshots
+
+
+ConflictOnPushException is a local exception class, not a Firestore error.
+It is thrown manually inside the transaction when versions do not match.
 
 ---
 
@@ -822,6 +902,14 @@ Auth tokens are managed by Firebase SDK (stored in EncryptedSharedPreferences au
 - DO NOT poll Firestore — use snapshot listeners exclusively
 - DO NOT cancel WorkManager sync jobs on app close — let them complete
 - DO NOT write orderIndex changes to Firestore during drag — only on drop
+- DO NOT use .set() or .update() directly for conflict resolution pushes
+  Always use a Firestore Transaction with version check
+
+- DO NOT re-read expectedVersion from Room just before pushing
+  Capture it at conflict detection time and hold it in ConflictEntity
+
+- DO NOT retry conflict push infinitely
+  Cap at 3 retries then save draft locally and surface a message
 
 ### Scope
 - DO NOT build a Notion-style block editor — it is not required by the spec
