@@ -1,8 +1,8 @@
 plugins {
-    alias(libs.plugins.android.library)
+    alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.serialization) // Apply serialization plugin
-    alias(libs.plugins.hilt)
+    alias(libs.plugins.dagger.hilt)
     alias(libs.plugins.ksp)
 }
 

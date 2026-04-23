@@ -1,14 +1,15 @@
 plugins {
-    alias(libs.plugins.android.library)
+    alias(libs.plugins.android.application)
+//    alias(libs.plugins.android.library) // This was commented out, assuming it's not needed or managed elsewhere
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.compose.compiler)
-    alias(libs.plugins.hilt)
-    alias(libs.plugins.ksp)
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.dagger.hilt)
+    id("com.google.devtools.ksp") version "2.0.20-1.0.25" // Explicitly apply KSP here
 }
 
 android {
     namespace = "com.example.notetaker.feature.workspace"
-    compileSdk = 36
+    compileSdk = 35
 
     defaultConfig {
         minSdk = 24
@@ -23,9 +24,9 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlin {
-        jvmToolchain(17)
-    }
+//    kotlin {
+//        jvmToolchain(17)
+//    }
 }
 
 dependencies {
@@ -38,7 +39,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
-    implementation(libs.androidx.hilt.navigation-compose)
+//    implementation(libs.androidx.hilt.navigation-compose)
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

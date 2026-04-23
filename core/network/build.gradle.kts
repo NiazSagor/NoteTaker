@@ -1,7 +1,7 @@
 plugins {
-    alias(libs.plugins.android.library)
+    alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.hilt)
+    alias(libs.plugins.dagger.hilt)
     alias(libs.plugins.ksp)
 }
 
@@ -18,9 +18,9 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlin {
-        jvmToolchain(17)
-    }
+//    kotlin {
+//        jvmToolchain(17)
+//    }
 }
 
 dependencies {
@@ -30,8 +30,8 @@ dependencies {
     ksp(libs.hilt.compiler)
 
     implementation(platform(libs.firebase.bom))
-    implementation(libs.firebase.auth-ktx)
-    implementation(libs.firebase.firestore-ktx)
+    //implementation(libs.firebase.auth-ktx)
+    //implementation(libs.firebase.firestore-ktx)
     implementation(libs.google.id)
-    implementation(libs.cloudinary-android)
+    //implementation(libs.cloudinary-android)
 }

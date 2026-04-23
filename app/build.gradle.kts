@@ -1,11 +1,12 @@
 plugins {
-  alias(libs.plugins.android.application)
-  alias(libs.plugins.kotlin.android)
-  alias(libs.plugins.compose.compiler)
-  alias(libs.plugins.kotlin.serialization)
-  alias(libs.plugins.hilt)
-  alias(libs.plugins.ksp)
-  alias(libs.plugins.google.services)
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.dagger.hilt)
+    //alias(libs.plugins.jetbrains.kotlin.serialization)
+    //alias(libs.plugins.detekt)
+    alias(libs.plugins.ksp)
+//    alias(libs.plugins.google.services)
 }
 
 android {
@@ -30,6 +31,10 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
     buildFeatures {
       compose = true
       aidl = false
@@ -44,9 +49,7 @@ android {
     }
 }
 
-kotlin {
-    jvmToolchain(17)
-}
+
 
 dependencies {
   implementation(project(":core:domain"))
@@ -63,7 +66,7 @@ dependencies {
   androidTestImplementation(composeBom)
 
   // Core Android dependencies
-  implementation(libs.androidx.core-ktx)
+    implementation(libs.androidx.core.ktx)
   implementation(libs.androidx.lifecycle.runtime.ktx)
   implementation(libs.androidx.activity.compose)
 
@@ -92,12 +95,12 @@ dependencies {
   androidTestImplementation(libs.androidx.test.espresso.core)
 
   // Navigation
-  implementation(libs.androidx.navigation3.ui)
-  implementation(libs.androidx.navigation3.runtime)
-  implementation(libs.androidx.lifecycle.viewmodel.navigation3)
+//  implementation(libs.androidx.navigation3.ui)
+//  implementation(libs.androidx.navigation3.runtime)
+//  implementation(libs.androidx.lifecycle.viewmodel.navigation3)
 
   // Hilt
   implementation(libs.hilt.android)
   ksp(libs.hilt.compiler)
-  implementation(libs.androidx.hilt.navigation-compose)
+    implementation(libs.hilt.navigation.compose)
 }
