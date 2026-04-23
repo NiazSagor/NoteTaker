@@ -1,5 +1,6 @@
 package com.example.notetaker.core.data.repository
 
+import android.util.Log
 import com.example.notetaker.core.data.db.dao.ConflictDao
 import com.example.notetaker.core.data.db.dao.GridElementDao
 import com.example.notetaker.core.data.db.entity.ConflictEntity
@@ -12,6 +13,7 @@ import com.example.notetaker.core.domain.repository.GridElementRepository
 import com.example.notetaker.core.network.firebase.FirestoreSource
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -25,13 +27,13 @@ class GridElementRepositoryImpl @Inject constructor(
 ) : GridElementRepository {
 
     private val workspaceId = "global_workspace"
+    private val TAG = "GridElementRepoImpl"
 
     init {
         observeRemoteGridElements()
     }
 
     override fun observeGridElements(workspaceId: String): Flow<List<GridElementEntity>> {
-        // Observes local Room data. Remote changes are synced to Room.
         return gridElementDao.observeGridElements(workspaceId)
     }
 
@@ -40,9 +42,7 @@ class GridElementRepositoryImpl @Inject constructor(
     }
 
     override suspend fun saveGridElement(element: GridElementEntity) = withContext(ioDispatcher) {
-        // Local save first (optimistic update)
         gridElementDao.upsert(element)
-        // Remote save is handled by sync mechanism (WorkManager)
     }
 
     override suspend fun softDeleteGridElement(id: String) = withContext(ioDispatcher) {
@@ -50,74 +50,79 @@ class GridElementRepositoryImpl @Inject constructor(
     }
 
     private fun observeRemoteGridElements() {
-        // Launch the observation in the application's scope
         appScope.launch {
-            flow {
-                emitAll(firestoreSource.observeGridElements(workspaceId))
-            }
-            .flowOn(ioDispatcher)
-            .onEach { remoteElements ->
-                remoteElements.forEach { remoteElement ->
-                    val localElement = gridElementDao.getById(remoteElement.id)
+            firestoreSource.observeGridElements(workspaceId)
+                .flowOn(ioDispatcher)
+                .onEach { remoteElements ->
+                    remoteElements.forEach { remoteElement ->
+                        val localElement = gridElementDao.getById(remoteElement.id)
 
-                    if (localElement != null) {
-                        val conflictType = ConflictDetector.detect(
-                            localVersion = localElement.localVersion,
-                            remoteVersionAtLocal = localElement.remoteVersion,
-                            incomingRemoteVersion = remoteElement.remoteVersion
-                        )
+                        if (localElement != null) {
+                            // Local entity exists, perform conflict detection
+                            val conflictType = ConflictDetector.detect(
+                                localVersion = localElement.localVersion,
+                                remoteVersionAtLocal = localElement.remoteVersion,
+                                incomingRemoteVersion = remoteElement.remoteVersion
+                            )
 
-                        when (conflictType) {
-                            ConflictType.REMOTE_ADVANCED -> {
-                                // Case 1: Safe to apply remote changes directly.
-                                val updatedLocalElement = remoteElement.copy(
-                                    localVersion = localElement.localVersion,
-                                    syncStatus = localElement.syncStatus
-                                )
-                                gridElementDao.upsert(updatedLocalElement)
+                            when (conflictType) {
+                                ConflictType.REMOTE_ADVANCED -> {
+                                    // Case 1: Safe to apply remote changes directly.
+                                    val updatedLocalElement = remoteElement.copy(
+                                        localVersion = localElement.localVersion,
+                                        syncStatus = localElement.syncStatus
+                                    )
+                                    gridElementDao.upsert(updatedLocalElement)
+                                }
+                                ConflictType.LOCAL_ADVANCED -> {
+                                    // Case 2: Local change is ahead. Do nothing.
+                                }
+                                ConflictType.CLEAN_FAST_FORWARD -> {
+                                    // Case 3: Remote advanced exactly one version. Safe to apply.
+                                    val updatedLocalElement = remoteElement.copy(
+                                        localVersion = localElement.localVersion,
+                                        syncStatus = localElement.syncStatus
+                                    )
+                                    gridElementDao.upsert(updatedLocalElement)
+                                }
+                                ConflictType.TRUE_CONFLICT -> {
+                                    // Case 4: Both local and remote diverged.
+                                    val conflict = ConflictEntity(
+                                        id = UUID.randomUUID().toString(),
+                                        noteId = remoteElement.noteId ?: "", // GridElement might not have noteId directly, needs mapping
+                                        workspaceId = workspaceId,
+                                        localSnapshot = gridElementDao.convertGridElementEntityToJson(localElement),
+                                        remoteSnapshot = gridElementDao.convertGridElementEntityToJson(remoteElement),
+                                        localVersion = localElement.localVersion,
+                                        remoteVersion = remoteElement.remoteVersion,
+                                        detectedAt = System.currentTimeMillis(),
+                                        isResolved = false
+                                    )
+                                    conflictDao.upsert(conflict)
+                                    gridElementDao.updateSyncStatus(remoteElement.id, SyncStatus.CONFLICT)
+                                }
                             }
-                            ConflictType.LOCAL_ADVANCED -> {
-                                // Case 2: Local change is ahead. Do nothing.
+                        } else {
+                            // Local element doesn't exist, but remote does.
+                            if (!remoteElement.isDeleted) {
+                                gridElementDao.upsert(remoteElement.copy(syncStatus = SyncStatus.SYNCED))
+                            } else {
+                                // Remote element is deleted, ensure local reflects this.
+                                gridElementDao.deleteById(remoteElement.id) // Assuming deleteById method exists in GridElementDao
                             }
-                            ConflictType.CLEAN_FAST_FORWARD -> {
-                                // Case 3: Remote advanced exactly one version. Safe to apply.
-                                val updatedLocalElement = remoteElement.copy(
-                                    localVersion = localElement.localVersion,
-                                    syncStatus = localElement.syncStatus
-                                )
-                                gridElementDao.upsert(updatedLocalElement)
-                            }
-                            ConflictType.TRUE_CONFLICT -> {
-                                // Case 4: Both local and remote diverged.
-                                val conflict = ConflictEntity(
-                                    id = UUID.randomUUID().toString(),
-                                    noteId = remoteElement.noteId ?: "", // GridElement might not have noteId directly, needs mapping
-                                    workspaceId = workspaceId,
-                                    localSnapshot = gridElementDao.convertGridElementEntityToJson(localElement) ?: "{}", // Add null safety or default
-                                    remoteSnapshot = gridElementDao.convertGridElementEntityToJson(remoteElement) ?: "{}", // Add null safety or default
-                                    localVersion = localElement.localVersion,
-                                    remoteVersion = remoteElement.remoteVersion,
-                                    detectedAt = System.currentTimeMillis(),
-                                    isResolved = false
-                                )
-                                conflictDao.upsert(conflict)
-                                gridElementDao.updateSyncStatus(remoteElement.id, SyncStatus.CONFLICT)
-                            }
-                        }
-                    } else {
-                        // Local element doesn't exist, but remote does.
-                        // Handle new remote elements.
-                        if (!remoteElement.isDeleted) {
-                            gridElementDao.upsert(remoteElement.copy(syncStatus = SyncStatus.SYNCED))
                         }
                     }
                 }
             }
             .catch { e ->
-                // Proper error handling for the flow
-                // Log.e("GridElementSync", "Error observing remote grid elements", e)
+                Log.e(TAG, "Error observing remote grid elements", e)
             }
             .launchIn(appScope) // Use the injected application scope
         }
     }
 }
+
+// Note: The following DAO methods are assumed to exist and need to be implemented:
+// - deleteById(id: String) in GridElementDao
+// - convertGridElementEntityToJson(element: GridElementEntity): String (already implemented in DAO)
+// - The primary task here is ensuring the logic for handling conflict detection and updates is correctly placed.
