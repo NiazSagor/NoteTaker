@@ -11,7 +11,7 @@ import kotlinx.serialization.json.Json
 @Dao
 interface GridElementDao {
     @Transaction
-    @Query("SELECT * FROM grid_elements WHERE workspaceId = :workspaceId AND isDeleted = 0 ORDER BY orderIndex ASC")
+    @Query("SELECT * FROM grid_elements WHERE workspaceId = :workspaceId AND deleted = 0 ORDER BY orderIndex ASC")
     fun observeGridElementsWithContent(workspaceId: String): Flow<List<GridElementWithContent>>
 
     @Query("SELECT * FROM grid_elements WHERE id = :id")
@@ -24,7 +24,7 @@ interface GridElementDao {
     @Upsert
     suspend fun upsertAll(elements: List<GridElementEntity>)
 
-    @Query("UPDATE grid_elements SET isDeleted = 1, syncStatus = 'PENDING' WHERE id = :id")
+    @Query("UPDATE grid_elements SET deleted = 1, syncStatus = 'PENDING' WHERE id = :id")
     suspend fun softDelete(id: String)
 
     @Query("UPDATE grid_elements SET syncStatus = :status WHERE id = :id")

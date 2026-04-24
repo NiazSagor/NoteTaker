@@ -8,13 +8,13 @@ import com.example.notetaker.core.domain.model.UploadStatus
 
 @Entity(tableName = "grid_elements")
 data class GridElementEntity(
-    @PrimaryKey val id: String,                // UUID
-    val workspaceId: String,                   // FK to WorkspaceEntity
-    val type: GridElementType,                 // NOTE or STANDALONE_IMAGE
-    val orderIndex: Double,                    // fractional index for ordering
-    val createdAt: Long,
-    val updatedAt: Long,
-    val createdBy: String,                     // Firebase UID
+    @PrimaryKey val id: String = "",                // UUID
+    val workspaceId: String = "",                   // FK to WorkspaceEntity
+    val type: GridElementType = GridElementType.NOTE,                 // NOTE or STANDALONE_IMAGE
+    val orderIndex: Double = 0.0,                    // fractional index for ordering
+    val createdAt: Long = 0L,
+    val updatedAt: Long = 0L,
+    val createdBy: String = "",                     // Firebase UID
 
     // Only populated when type == NOTE
     val noteId: String? = null,
@@ -27,7 +27,7 @@ data class GridElementEntity(
     val syncStatus: SyncStatus = SyncStatus.PENDING,
     val localVersion: Int = 0,
     val remoteVersion: Int = 0,
-    val isDeleted: Boolean = false,
+    val deleted: Boolean = false,
 
     // DEBUG fields
     val lastSyncAttemptAt: Long? = null,

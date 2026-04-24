@@ -97,7 +97,9 @@ class NoteRepositoryImpl @Inject constructor(
             firestoreSource.observeNotes(workspaceId)
                 .flowOn(ioDispatcher)
                 .onEach { remoteNotes ->
+
                     remoteNotes.forEach { remoteNote ->
+                        Log.e(TAG, "observeRemoteNotes: $remoteNote", )
                         syncProcessor.syncRemoteNote(remoteNote)
                     }
                 }

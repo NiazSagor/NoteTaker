@@ -41,6 +41,14 @@ class SyncProcessor @Inject constructor(
             val localNote = noteDao.getNote(remoteNote.id)
 
             if (localNote != null) {
+
+                val isDeleted = remoteNote.deleted
+
+                if (isDeleted) {
+                    noteDao.deleteById(remoteNote.id)
+                    return@withContext
+                }
+
                 // Local entity exists, perform conflict detection
                 val conflictType = ConflictDetector.detect(
                     localVersion = localNote.localVersion,
@@ -91,7 +99,7 @@ class SyncProcessor @Inject constructor(
                 }
             } else {
                 // Local note doesn't exist, handle new remote notes.
-                if (!remoteNote.isDeleted) {
+                if (!remoteNote.deleted) {
                     noteDao.upsert(remoteNote.copy(syncStatus = SyncStatus.SYNCED))
                 }
             }
@@ -103,9 +111,14 @@ class SyncProcessor @Inject constructor(
             val localElement = gridElementDao.getById(remoteElement.id)
 
             if (localElement != null) {
+                val isDeleted = remoteElement.deleted
+                if (isDeleted) {
+                    gridElementDao.deleteById(remoteElement.id)
+                    return@withContext
+                }
                 // LAST WRITE WINS but ignore stale (Section 6.5)
                 if (remoteElement.remoteVersion > localElement.remoteVersion) {
-                    if (remoteElement.isDeleted) {
+                    if (remoteElement.deleted) {
                         gridElementDao.deleteById(remoteElement.id)
                     } else {
                         val updatedLocalElement = remoteElement.copy(
@@ -117,7 +130,7 @@ class SyncProcessor @Inject constructor(
                 }
             } else {
                 // Local element doesn't exist, handle new remote elements.
-                if (!remoteElement.isDeleted) {
+                if (!remoteElement.deleted) {
                     gridElementDao.upsert(remoteElement.copy(syncStatus = SyncStatus.SYNCED))
                 }
             }

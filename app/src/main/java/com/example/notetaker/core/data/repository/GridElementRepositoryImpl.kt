@@ -98,6 +98,7 @@ class GridElementRepositoryImpl @Inject constructor(
                 .flowOn(ioDispatcher)
                 .onEach { remoteElements ->
                     remoteElements.forEach { remoteElement ->
+                        Log.e(TAG, "observeRemoteGridElements: $remoteElement", )
                         syncProcessor.syncRemoteGridElement(remoteElement)
                     }
                 }

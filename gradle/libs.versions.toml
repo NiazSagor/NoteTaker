@@ -18,7 +18,7 @@ hilt-navigation-compose = "1.2.0"
 hilt = "2.52"
 room = "2.6.1"
 datastore = "1.1.1"
-coil = "2.6.0"
+coil = "3.0.0-rc01"
 firebaseBom = "33.1.0"
 cloudinary = "2.3.0"
 work = "2.9.0"
@@ -69,7 +69,8 @@ room-db-paging = { group = "androidx.room", name = "room-paging", version.ref = 
 datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 
 # Coil
-coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
+coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
+coil-network = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
 
 # Firebase
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }

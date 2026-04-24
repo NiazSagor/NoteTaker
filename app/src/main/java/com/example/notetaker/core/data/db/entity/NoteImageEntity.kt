@@ -7,17 +7,17 @@ import com.example.notetaker.core.domain.model.UploadStatus
 
 @Entity(tableName = "note_images")
 data class NoteImageEntity(
-    @PrimaryKey val id: String,                // UUID
-    val noteId: String,                        // FK to NoteEntity
-    val workspaceId: String,
-    val orderInNote: Int,                      // display order within the note
-    val localImageUri: String?,                // file:// URI before upload
-    val remoteImageUrl: String?,               // Cloudinary HTTPS URL after upload
+    @PrimaryKey val id: String = "",                // UUID
+    val noteId: String = "",                        // FK to NoteEntity
+    val workspaceId: String = "",
+    val orderInNote: Int = 0,                      // display order within the note
+    val localImageUri: String? = null,                // file:// URI before upload
+    val remoteImageUrl: String? = null,               // Cloudinary HTTPS URL after upload
     val rotationDegrees: Float = 0f,           // persisted rotation from 3-finger gesture
     val uploadStatus: UploadStatus = UploadStatus.NONE,
-    val createdAt: Long,
-    val updatedAt: Long,
-    val createdBy: String,
+    val createdAt: Long = 0L,
+    val updatedAt: Long = 0L,
+    val createdBy: String = "",
 
     val syncStatus: SyncStatus = SyncStatus.PENDING,
     val localVersion: Int = 0,

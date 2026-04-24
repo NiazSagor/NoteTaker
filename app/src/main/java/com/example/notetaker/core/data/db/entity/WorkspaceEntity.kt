@@ -6,11 +6,11 @@ import com.example.notetaker.core.domain.model.SyncStatus
 
 @Entity(tableName = "workspaces")
 data class WorkspaceEntity(
-    @PrimaryKey val id: String,                // UUID, shared across all users
-    val name: String,
-    val createdAt: Long,
-    val updatedAt: Long,
-    val createdBy: String,                     // Firebase UID
+    @PrimaryKey val id: String = "",                // UUID, shared across all users
+    val name: String = "",
+    val createdAt: Long = 0L,
+    val updatedAt: Long = 0L,
+    val createdBy: String = "",                     // Firebase UID
     val syncStatus: SyncStatus = SyncStatus.SYNCED,
     val localVersion: Int = 0,
     val remoteVersion: Int = 0,

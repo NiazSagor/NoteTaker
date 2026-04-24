@@ -18,7 +18,7 @@ interface NoteDao {
     @Upsert
     suspend fun upsert(note: NoteEntity)
 
-    @Query("UPDATE notes SET isDeleted = 1, syncStatus = 'PENDING' WHERE id = :id")
+    @Query("UPDATE notes SET deleted = 1, syncStatus = 'PENDING' WHERE id = :id")
     suspend fun softDelete(id: String)
 
     @Query("UPDATE notes SET syncStatus = :status WHERE id = :id")

@@ -6,19 +6,19 @@ import com.example.notetaker.core.domain.model.SyncStatus
 
 @Entity(tableName = "notes")
 data class NoteEntity(
-    @PrimaryKey val id: String,                // UUID — same as GridElementEntity.noteId
-    val workspaceId: String,
-    val title: String,
-    val content: String,                       // plain text for now
-    val createdAt: Long,
-    val updatedAt: Long,
-    val createdBy: String,                     // Firebase UID
-    val lastEditedBy: String,                  // Firebase UID of last editor
+    @PrimaryKey val id: String = "",                // UUID â€” same as GridElementEntity.noteId
+    val workspaceId: String = "",
+    val title: String = "",
+    val content: String = "",                       // plain text for now
+    val createdAt: Long = 0L,
+    val updatedAt: Long = 0L,
+    val createdBy: String = "",                     // Firebase UID
+    val lastEditedBy: String = "",                  // Firebase UID of last editor
 
     val syncStatus: SyncStatus = SyncStatus.PENDING,
     val localVersion: Int = 0,
     val remoteVersion: Int = 0,
-    val isDeleted: Boolean = false,
+    val deleted: Boolean = false,
 
     // Conflict snapshots — stored locally when conflict detected
     // Null when no conflict
