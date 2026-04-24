@@ -55,6 +55,7 @@ class NoteRepositoryImpl @Inject constructor(
 
             // Immediate remote attempt
             try {
+                // TODO:  syncStatus appears = PENDING in firestore
                 val noteToPush = note.copy(remoteVersion = note.remoteVersion + 1)
                 firestoreSource.upsertNote(workspaceId, noteToPush)
                 // Success! Update local record to match server

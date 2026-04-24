@@ -55,6 +55,7 @@ class GridElementRepositoryImpl @Inject constructor(
 
             // Immediate remote attempt
             try {
+                // TODO:  syncStatus appears = PENDING in firestore
                 val elementToPush = element.copy(remoteVersion = element.remoteVersion + 1)
                 firestoreSource.upsertGridElement(workspaceId, elementToPush)
                 gridElementDao.upsert(

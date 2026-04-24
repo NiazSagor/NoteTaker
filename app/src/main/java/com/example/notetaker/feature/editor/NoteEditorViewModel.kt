@@ -65,6 +65,8 @@ class NoteEditorViewModel @Inject constructor(
     @ApplicationContext private val context: Context // Inject context to enqueue worker
 ) : ViewModel() {
 
+    private val userEditTrigger = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
     private val noteId: String = checkNotNull(savedStateHandle["noteId"])
     private val workspaceId: String = "global_workspace"
 
@@ -72,10 +74,10 @@ class NoteEditorViewModel @Inject constructor(
     val uiState: StateFlow<NoteEditorUiState> = _uiState.asStateFlow()
 
     init {
-        observeAuth()
-        observeNote()
-        observeImages()
         setupAutoSave()
+        observeAuth()
+        observeImages()
+        observeNote()
     }
 
     private fun observeAuth() {
@@ -116,16 +118,7 @@ class NoteEditorViewModel @Inject constructor(
     }
 
     private fun setupAutoSave() {
-        // Auto-save title
-        _uiState.map { it.draftTitle }
-            .distinctUntilChanged()
-            .debounce(500)
-            .onEach { saveNote() }
-            .launchIn(viewModelScope)
-
-        // Auto-save content
-        _uiState.map { it.draftContent }
-            .distinctUntilChanged()
+        userEditTrigger
             .debounce(500)
             .onEach { saveNote() }
             .launchIn(viewModelScope)
@@ -136,10 +129,12 @@ class NoteEditorViewModel @Inject constructor(
             is NoteEditorEvent.OnTitleChange -> {
                 _uiState.update { it.copy(draftTitle = event.newTitle) }
                 savedStateHandle["draftTitle"] = event.newTitle
+                userEditTrigger.tryEmit(Unit)
             }
             is NoteEditorEvent.OnContentChange -> {
                 _uiState.update { it.copy(draftContent = event.newContent) }
                 savedStateHandle["draftContent"] = event.newContent
+                userEditTrigger.tryEmit(Unit)
             }
             is NoteEditorEvent.OnAddImage -> addImage(event.uri)
             is NoteEditorEvent.OnImageSelected -> {
@@ -161,7 +156,7 @@ class NoteEditorViewModel @Inject constructor(
     }
 
     private fun saveNote() {
-        val userId = uiState.value.userId ?: return
+        val userId = "NIAZ" /*uiState.value.userId ?: return*/
         viewModelScope.launch {
             updateNoteUseCase(
                 UpdateNoteParams(
