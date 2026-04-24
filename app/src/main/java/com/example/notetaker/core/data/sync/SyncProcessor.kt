@@ -1,5 +1,6 @@
 package com.example.notetaker.core.data.sync
 
+import android.util.Log
 import com.example.notetaker.core.data.db.dao.ConflictDao
 import com.example.notetaker.core.data.db.dao.GridElementDao
 import com.example.notetaker.core.data.db.dao.NoteDao
@@ -55,6 +56,7 @@ class SyncProcessor @Inject constructor(
                     remoteVersionAtLocal = localNote.remoteVersion,
                     incomingRemoteVersion = remoteNote.remoteVersion
                 )
+                Log.e(TAG, "syncRemoteNote: conflictType $conflictType", )
 
                 when (conflictType) {
                     ConflictType.STALE, ConflictType.NO_CHANGE -> {

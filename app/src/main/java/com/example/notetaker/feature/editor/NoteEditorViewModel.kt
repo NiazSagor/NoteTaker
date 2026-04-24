@@ -99,8 +99,8 @@ class NoteEditorViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             note = note,
-                            draftTitle = savedStateHandle["draftTitle"] ?: note.title,
-                            draftContent = savedStateHandle["draftContent"] ?: note.content
+                            draftTitle = /*savedStateHandle["draftTitle"] ?:*/ note.title,
+                            draftContent = /*savedStateHandle["draftContent"] ?:*/ note.content
                         )
                     }
                     Log.e(TAG, "observeNote: note $note", )
@@ -130,12 +130,12 @@ class NoteEditorViewModel @Inject constructor(
         when (event) {
             is NoteEditorEvent.OnTitleChange -> {
                 _uiState.update { it.copy(draftTitle = event.newTitle) }
-                savedStateHandle["draftTitle"] = event.newTitle
+                //savedStateHandle["draftTitle"] = event.newTitle
                 userEditTrigger.tryEmit(Unit)
             }
             is NoteEditorEvent.OnContentChange -> {
                 _uiState.update { it.copy(draftContent = event.newContent) }
-                savedStateHandle["draftContent"] = event.newContent
+                //savedStateHandle["draftContent"] = event.newContent
                 userEditTrigger.tryEmit(Unit)
             }
             is NoteEditorEvent.OnAddImage -> addImage(event.uri)

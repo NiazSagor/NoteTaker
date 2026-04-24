@@ -1,5 +1,6 @@
 package com.example.notetaker.feature.editor
 
+import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -14,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
+private const val TAG = "NoteEditorScreen"
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NoteEditorScreen(
@@ -21,6 +23,8 @@ fun NoteEditorScreen(
     onBackClick: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    Log.e(TAG, "NoteEditorScreen: ${uiState.note?.content}", )
 
     Scaffold(
         topBar = {
