@@ -1,13 +1,17 @@
 package com.example.notetaker.core.data.repository
 
+import android.util.Log
 import com.example.notetaker.core.data.db.dao.ConflictDao
 import com.example.notetaker.core.data.db.dao.NoteImageDao
 import com.example.notetaker.core.data.db.entity.NoteImageEntity
+import com.example.notetaker.core.data.sync.SyncProcessor
 import com.example.notetaker.core.domain.di.IoDispatcher
 import com.example.notetaker.core.domain.repository.NoteImageRepository
 import com.example.notetaker.core.network.firebase.FirestoreSource
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -17,21 +21,17 @@ class NoteImageRepositoryImpl @Inject constructor(
     private val noteImageDao: NoteImageDao,
     private val conflictDao: ConflictDao,
     private val firestoreSource: FirestoreSource,
-    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
+    private val syncProcessor: SyncProcessor,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    private val appScope: CoroutineScope
 ) : NoteImageRepository {
 
     private val workspaceId = "global_workspace" // Assuming a single global workspace
-
-    init {
-        // This needs to observe images for all notes or a specific note context.
-        // For now, let's assume we observe images for a given noteId contextually.
-        // A more global observer might be needed if images can be shared or displayed outside a note context.
-        // For simplicity, we'll assume observeNoteImages is called with a noteId, and we need to adapt.
-        // Let's create a separate observation flow if needed here, or assume it's handled by higher layers.
-        // For now, we won't auto-observe all images here, but rely on specific note observation.
-    }
+    private val TAG = "NoteImageRepoImpl"
 
     override fun observeNoteImages(noteId: String): Flow<List<NoteImageEntity>> {
+        // Trigger remote observation when a note is observed
+        observeRemoteNoteImages(noteId)
         // Observes local Room data. Remote changes are synced to Room.
         return noteImageDao.observeNoteImages(noteId)
     }
@@ -56,14 +56,19 @@ class NoteImageRepositoryImpl @Inject constructor(
         noteImageDao.softDelete(id)
     }
 
-    // --- Remote Synchronization Logic ---
-    // This is a placeholder and would need to be integrated with FirestoreSource and Conflict logic
-    // similar to NoteRepositoryImpl. It's more complex as noteImages are sub-collections.
-    // For now, we rely on the local-first save and the sync worker to push changes.
-    // Conflict detection for note images might be simpler (e.g., last write wins for rotation).
-    // The SKILL.md mentions "Conflict for Non-Text Fields: For `orderIndex`, `rotationDegrees`, `uploadStatus` — use LAST WRITE WINS."
-    // This implies TRUE_CONFLICT might not occur for NoteImageEntity itself, but rather the NoteEntity it belongs to.
-    // However, if noteImage itself has versions and can diverge, we'd need similar detection.
-    // For now, we assume conflicts on NoteImage are rare or handled differently (e.g., via parent Note conflict).
-    // If needed, a similar observeRemoteNoteImages method would be implemented here.
+    private fun observeRemoteNoteImages(noteId: String) {
+        appScope.launch {
+            firestoreSource.observeNoteImages(workspaceId, noteId)
+                .flowOn(ioDispatcher)
+                .onEach { remoteImages ->
+                    remoteImages.forEach { remoteImage ->
+                        syncProcessor.syncRemoteNoteImage(remoteImage, noteId)
+                    }
+                }
+                .catch { e ->
+                    Log.e(TAG, "Error observing remote note images for note $noteId", e)
+                }
+                .launchIn(appScope)
+        }
+    }
 }

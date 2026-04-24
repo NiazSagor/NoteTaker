@@ -17,8 +17,8 @@ data class UpdateNoteParams(
 class UpdateNoteUseCase @Inject constructor(
     private val repository: NoteRepository,
     @IoDispatcher dispatcher: CoroutineDispatcher
-) : UseCase<com.example.notetaker.core.domain.usecase.note.UpdateNoteParams, Unit>(dispatcher) {
-    override suspend fun execute(parameters: com.example.notetaker.core.domain.usecase.note.UpdateNoteParams) {
+) : UseCase<UpdateNoteParams, Unit>(dispatcher) {
+    override suspend fun execute(parameters: UpdateNoteParams) {
         val note = repository.getNote(parameters.noteId) ?: return
         val updatedNote = note.copy(
             title = parameters.title,

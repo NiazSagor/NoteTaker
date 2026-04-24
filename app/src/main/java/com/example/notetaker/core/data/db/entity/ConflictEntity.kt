@@ -13,6 +13,8 @@ data class ConflictEntity(
     val remoteSnapshot: String,                // JSON of incoming remote NoteEntity
     val localVersion: Int,
     val remoteVersion: Int,
+    val expectedVersion: Int,
+    val conflictRoundCount: Int = 0,
     val detectedAt: Long,
     val resolvedAt: Long? = null,
     val isResolved: Boolean = false,

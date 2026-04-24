@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.notetaker.core.data.db.entity.GridElementEntity
+import com.example.notetaker.core.data.db.entity.GridElementWithContent
 import com.example.notetaker.core.domain.base.Result
 import com.example.notetaker.core.domain.usecase.auth.ObserveUserIdUseCase
 import com.example.notetaker.core.domain.usecase.auth.SignInAnonymouslyUseCase
@@ -18,7 +19,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class WorkspaceUiState(
-    val gridElements: List<GridElementEntity> = emptyList(),
+    val gridElements: List<GridElementWithContent> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
     val userId: String? = null
@@ -98,8 +99,8 @@ class WorkspaceViewModel @Inject constructor(
 
     private fun createNote() {
         val userId = uiState.value.userId ?: return
-        val nextOrderIndex = (uiState.value.gridElements.lastOrNull()?.orderIndex ?: 0.0) + 1.0
-        
+        val nextOrderIndex = (uiState.value.gridElements.lastOrNull()?.element?.orderIndex ?: 0.0) + 1.0
+
         viewModelScope.launch {
             createNoteUseCase(CreateNoteParams(workspaceId, userId, nextOrderIndex))
         }

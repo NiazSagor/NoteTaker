@@ -2,6 +2,7 @@ package com.example.notetaker.core.data.di
 
 import android.content.Context
 import androidx.room.Room
+import androidx.room.RoomDatabase
 import com.example.notetaker.core.data.db.AppDatabase
 import com.example.notetaker.core.data.db.dao.*
 import dagger.Module
@@ -23,7 +24,7 @@ object DatabaseModule {
             AppDatabase::class.java,
             "notetaker.db"
         )
-        //.setJournalMode(AppDatabase.JournalMode.WRITE_AHEAD_LOGGING)
+        .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
         .build()
     }
 

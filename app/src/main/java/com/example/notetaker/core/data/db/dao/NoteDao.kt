@@ -24,6 +24,9 @@ interface NoteDao {
     @Query("UPDATE notes SET syncStatus = :status WHERE id = :id")
     suspend fun updateSyncStatus(id: String, status: SyncStatus)
 
+    @Query("DELETE FROM notes WHERE id = :id")
+    suspend fun deleteById(id: String)
+
     // Implement JSON conversion for conflict snapshots using kotlinx.serialization
     @Transaction // Ensure atomicity if this method were more complex
     @Query("SELECT * FROM notes WHERE id = :id")

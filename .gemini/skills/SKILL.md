@@ -79,7 +79,7 @@ Room (local)      Firebase + Cloudinary (remote)
 ---
 
 ## 4. MODULE STRUCTURE
-
+Single module project with following directory structure:
 ```
 app/
 ├── :core:data

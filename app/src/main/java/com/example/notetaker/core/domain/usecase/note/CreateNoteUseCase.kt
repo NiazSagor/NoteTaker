@@ -22,8 +22,8 @@ class CreateNoteUseCase @Inject constructor(
     private val noteRepository: NoteRepository,
     private val gridElementRepository: GridElementRepository,
     @IoDispatcher dispatcher: CoroutineDispatcher
-) : UseCase<com.example.notetaker.core.domain.usecase.note.CreateNoteParams, String>(dispatcher) {
-    override suspend fun execute(parameters: com.example.notetaker.core.domain.usecase.note.CreateNoteParams): String {
+) : UseCase<CreateNoteParams, String>(dispatcher) {
+    override suspend fun execute(parameters: CreateNoteParams): String {
         val noteId = UUID.randomUUID().toString()
         val now = System.currentTimeMillis()
 

@@ -29,6 +29,9 @@ interface NoteImageDao {
     @Query("UPDATE note_images SET syncStatus = :status WHERE id = :id")
     suspend fun updateSyncStatus(id: String, status: SyncStatus)
 
+    @Query("DELETE FROM note_images WHERE id = :id")
+    suspend fun deleteById(id: String)
+
     // Implement JSON conversion for conflict snapshots using kotlinx.serialization
     @Transaction
     @Query("SELECT * FROM note_images WHERE id = :id")
@@ -43,6 +46,9 @@ interface NoteImageDao {
     // Method to query for images that need upload or re-upload
     @Query("SELECT * FROM note_images WHERE uploadStatus IN ('PENDING', 'FAILED') AND localImageUri IS NOT NULL")
     suspend fun getImagesToUpload(): List<NoteImageEntity>
+
+    @Query("SELECT * FROM note_images WHERE syncStatus IN ('PENDING', 'ERROR')")
+    suspend fun getPendingOrErrorNoteImages(): List<NoteImageEntity>
 
     // Method to update upload status
     @Query("UPDATE note_images SET uploadStatus = :status WHERE id = :id")
