@@ -10,7 +10,7 @@ import kotlinx.serialization.json.Json
 
 @Dao
 interface NoteImageDao {
-    @Query("SELECT * FROM note_images WHERE noteId = :noteId AND isDeleted = 0 ORDER BY orderInNote ASC")
+    @Query("SELECT * FROM note_images WHERE noteId = :noteId AND deleted = 0 ORDER BY orderInNote ASC")
     fun observeNoteImages(noteId: String): Flow<List<NoteImageEntity>>
 
     @Query("SELECT * FROM note_images WHERE id = :id")
@@ -23,7 +23,7 @@ interface NoteImageDao {
     @Upsert
     suspend fun upsertAll(images: List<NoteImageEntity>)
 
-    @Query("UPDATE note_images SET isDeleted = 1, syncStatus = 'PENDING' WHERE id = :id")
+    @Query("UPDATE note_images SET deleted = 1, syncStatus = 'PENDING' WHERE id = :id")
     suspend fun softDelete(id: String)
 
     @Query("UPDATE note_images SET syncStatus = :status WHERE id = :id")

@@ -14,7 +14,7 @@ data class WorkspaceEntity(
     val syncStatus: SyncStatus = SyncStatus.SYNCED,
     val localVersion: Int = 0,
     val remoteVersion: Int = 0,
-    val isDeleted: Boolean = false,
+    val deleted: Boolean = false,
 
     // DEBUG fields
     val lastSyncAttemptAt: Long? = null,       // DEBUG: when did we last try to sync

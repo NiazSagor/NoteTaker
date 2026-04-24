@@ -144,7 +144,7 @@ class SyncProcessor @Inject constructor(
             if (localImage != null) {
                 // LAST WRITE WINS but ignore stale (Section 6.5)
                 if (remoteImage.remoteVersion > localImage.remoteVersion) {
-                    if (remoteImage.isDeleted) {
+                    if (remoteImage.deleted) {
                         noteImageDao.deleteById(remoteImage.id)
                     } else {
                         val updatedLocalImage = remoteImage.copy(
@@ -156,7 +156,7 @@ class SyncProcessor @Inject constructor(
                 }
             } else {
                 // Local image doesn't exist, handle new remote images.
-                if (!remoteImage.isDeleted) {
+                if (!remoteImage.deleted) {
                     noteImageDao.upsert(remoteImage.copy(syncStatus = SyncStatus.SYNCED))
                 }
             }

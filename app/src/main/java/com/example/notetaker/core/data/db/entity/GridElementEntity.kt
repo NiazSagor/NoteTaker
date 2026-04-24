@@ -33,4 +33,22 @@ data class GridElementEntity(
     val lastSyncAttemptAt: Long? = null,
     val lastSyncError: String? = null,
     val debugTag: String? = null               // DEBUG: human label for logging
-)
+) {
+    fun toFirestoreMap(): Map<String, Any?> {
+        return mapOf(
+            "id" to id,
+            "workspaceId" to workspaceId,
+            "type" to type.name,
+            "orderIndex" to orderIndex,
+            "createdAt" to createdAt,
+            "updatedAt" to updatedAt,
+            "createdBy" to createdBy,
+            "noteId" to noteId,
+            "localImageUri" to localImageUri,
+            "remoteImageUrl" to remoteImageUrl,
+            "uploadStatus" to uploadStatus.name,
+            "remoteVersion" to remoteVersion,
+            "deleted" to deleted
+        )
+    }
+}

@@ -38,13 +38,11 @@ class FirestoreSource @Inject constructor(
     }
 
     suspend fun upsertNote(workspaceId: String, note: NoteEntity) {
-        // We need to ensure we don't overwrite conflict snapshots on remote write.
-        // The repository layer should handle this by filtering out local-only fields.
         firestore.collection("workspaces")
             .document(workspaceId)
             .collection("notes")
             .document(note.id)
-            .set(note)
+            .set(note.toFirestoreMap())
             .await()
     }
 
@@ -73,7 +71,7 @@ class FirestoreSource @Inject constructor(
             .document(workspaceId)
             .collection("gridElements")
             .document(element.id)
-            .set(element)
+            .set(element.toFirestoreMap())
             .await()
     }
 
@@ -106,7 +104,7 @@ class FirestoreSource @Inject constructor(
             .document(noteId)
             .collection("noteImages")
             .document(image.id)
-            .set(image)
+            .set(image.toFirestoreMap())
             .await()
     }
 

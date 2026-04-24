@@ -30,4 +30,19 @@ data class NoteEntity(
     val lastSyncAttemptAt: Long? = null,
     val lastSyncError: String? = null,
     val editCount: Int = 0                     // DEBUG: how many times edited locally
-)
+) {
+    fun toFirestoreMap(): Map<String, Any?> {
+        return mapOf(
+            "id" to id,
+            "workspaceId" to workspaceId,
+            "title" to title,
+            "content" to content,
+            "createdAt" to createdAt,
+            "updatedAt" to updatedAt,
+            "createdBy" to createdBy,
+            "lastEditedBy" to lastEditedBy,
+            "remoteVersion" to remoteVersion,
+            "deleted" to deleted
+        )
+    }
+}

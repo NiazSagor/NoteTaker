@@ -1,6 +1,7 @@
 package com.example.notetaker.feature.editor
 
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -64,7 +65,7 @@ class NoteEditorViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
     @ApplicationContext private val context: Context // Inject context to enqueue worker
 ) : ViewModel() {
-
+    private val TAG = "NoteEditorViewModel"
     private val userEditTrigger = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
     private val noteId: String = checkNotNull(savedStateHandle["noteId"])
@@ -102,6 +103,7 @@ class NoteEditorViewModel @Inject constructor(
                             draftContent = savedStateHandle["draftContent"] ?: note.content
                         )
                     }
+                    Log.e(TAG, "observeNote: note $note", )
                 }
             }
             .launchIn(viewModelScope)
