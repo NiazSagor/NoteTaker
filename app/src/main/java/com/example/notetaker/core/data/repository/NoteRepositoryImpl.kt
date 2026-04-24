@@ -6,6 +6,7 @@ import com.example.notetaker.core.data.db.dao.NoteDao
 import com.example.notetaker.core.data.db.entity.NoteEntity
 import com.example.notetaker.core.data.sync.SyncProcessor
 import com.example.notetaker.core.domain.di.IoDispatcher
+import com.example.notetaker.core.domain.model.SyncStatus
 import com.example.notetaker.core.domain.repository.AuthRepository
 import com.example.notetaker.core.domain.repository.NoteRepository
 import com.example.notetaker.core.network.firebase.FirestoreSource
@@ -47,15 +48,36 @@ class NoteRepositoryImpl @Inject constructor(
         noteDao.getNote(id)
     }
 
-    override suspend fun saveNote(note: NoteEntity) = withContext(ioDispatcher) {
-        // Local save first (optimistic update)
-        noteDao.upsert(note)
-        // Remote save is handled by SyncPendingWorker
+    override suspend fun saveNote(note: NoteEntity) {
+        withContext(ioDispatcher) {
+            // Local save first (optimistic update)
+            noteDao.upsert(note)
+
+            // Immediate remote attempt
+            try {
+                firestoreSource.upsertNote(workspaceId, note)
+                noteDao.updateSyncStatus(note.id, SyncStatus.SYNCED)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed immediate sync for note ${note.id}, will retry via WorkManager", e)
+            }
+        }
     }
 
-    override suspend fun softDeleteNote(id: String) = withContext(ioDispatcher) {
-        noteDao.softDelete(id)
-        // Remote deletion will be handled by SyncPendingWorker
+    override suspend fun softDeleteNote(id: String) {
+        withContext(ioDispatcher) {
+            noteDao.softDelete(id)
+
+            // Immediate remote attempt for soft delete (tombstone)
+            try {
+                val note = noteDao.getNote(id)
+                if (note != null) {
+                    firestoreSource.upsertNote(workspaceId, note)
+                    noteDao.updateSyncStatus(id, SyncStatus.SYNCED)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed immediate sync for soft delete of note $id", e)
+            }
+        }
     }
 
     private fun observeRemoteNotes() {

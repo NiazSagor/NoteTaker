@@ -7,6 +7,7 @@ import com.example.notetaker.core.data.db.entity.GridElementEntity
 import com.example.notetaker.core.data.db.entity.GridElementWithContent
 import com.example.notetaker.core.data.sync.SyncProcessor
 import com.example.notetaker.core.domain.di.IoDispatcher
+import com.example.notetaker.core.domain.model.SyncStatus
 import com.example.notetaker.core.domain.repository.GridElementRepository
 import com.example.notetaker.core.network.firebase.FirestoreSource
 import kotlinx.coroutines.CoroutineDispatcher
@@ -47,12 +48,36 @@ class GridElementRepositoryImpl @Inject constructor(
             gridElementDao.getById(id)
         }
 
-    override suspend fun saveGridElement(element: GridElementEntity) = withContext(ioDispatcher) {
-        gridElementDao.upsert(element)
+    override suspend fun saveGridElement(element: GridElementEntity) {
+        withContext(ioDispatcher) {
+            // Local save first
+            gridElementDao.upsert(element)
+
+            // Immediate remote attempt
+            try {
+                firestoreSource.upsertGridElement(workspaceId, element)
+                gridElementDao.updateSyncStatus(element.id, SyncStatus.SYNCED)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed immediate sync for grid element ${element.id}", e)
+            }
+        }
     }
 
-    override suspend fun softDeleteGridElement(id: String) = withContext(ioDispatcher) {
-        gridElementDao.softDelete(id)
+    override suspend fun softDeleteGridElement(id: String) {
+        withContext(ioDispatcher) {
+            gridElementDao.softDelete(id)
+
+            // Immediate remote attempt
+            try {
+                val element = gridElementDao.getById(id)
+                if (element != null) {
+                    firestoreSource.upsertGridElement(workspaceId, element)
+                    gridElementDao.updateSyncStatus(id, SyncStatus.SYNCED)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed immediate sync for soft delete of grid element $id", e)
+            }
+        }
     }
 
     private fun observeRemoteGridElements() {
