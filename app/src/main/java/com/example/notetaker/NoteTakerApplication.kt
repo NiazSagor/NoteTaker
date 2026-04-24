@@ -14,7 +14,7 @@ class NoteTakerApplication : Application() {
         // --- Synchronization Workers ---
         // Enqueue SyncPendingWorker to handle pushing local metadata changes (notes, grid elements, image metadata) to Firestore.
         // This worker runs when network is available and retries on failure.
-        SyncPendingWorker.Companion.enqueue(this)
+        //SyncPendingWorker.Companion.enqueue(this)
 
         // CloudinaryUploadWorker is enqueued by NoteEditorViewModel when images are added locally.
         // MediaManager initialization for Cloudinary SDK would typically happen here or be managed by DI.

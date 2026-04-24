@@ -21,8 +21,8 @@ data class AddNoteImageParams(
 class AddNoteImageUseCase @Inject constructor(
     private val repository: NoteImageRepository,
     @IoDispatcher dispatcher: CoroutineDispatcher
-) : UseCase<com.example.notetaker.core.domain.usecase.image.AddNoteImageParams, Unit>(dispatcher) {
-    override suspend fun execute(parameters: com.example.notetaker.core.domain.usecase.image.AddNoteImageParams) {
+) : UseCase<AddNoteImageParams, Unit>(dispatcher) {
+    override suspend fun execute(parameters: AddNoteImageParams) {
         val now = System.currentTimeMillis()
         val image = NoteImageEntity(
             id = UUID.randomUUID().toString(),

@@ -1,8 +1,10 @@
 package com.example.notetaker.core.domain.conflict
 
 enum class ConflictType {
-    REMOTE_ADVANCED,     // Case 1: Safe to apply remote
-    LOCAL_ADVANCED,      // Case 2: Safe, keep local
-    CLEAN_FAST_FORWARD,  // Case 3: Merge silently or snackbar
-    TRUE_CONFLICT        // Case 4: Needs manual resolution
+    REMOTE_ADVANCED,     // L == 0 AND R > LR
+    LOCAL_ADVANCED,      // L > 0 AND R == LR
+    CLEAN_FAST_FORWARD,  // L > 0 AND R == LR + 1
+    TRUE_CONFLICT,       // L > 0 AND R > LR + 1
+    STALE,               // R < LR
+    NO_CHANGE            // R == LR AND L == 0
 }

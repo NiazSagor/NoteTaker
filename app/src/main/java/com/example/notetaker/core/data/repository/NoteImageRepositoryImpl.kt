@@ -52,11 +52,13 @@ class NoteImageRepositoryImpl @Inject constructor(
 
             // Immediate remote attempt
             try {
-                firestoreSource.upsertNoteImage(workspaceId, image.noteId, image)
-                noteImageDao.updateSyncStatus(image.id, SyncStatus.SYNCED)
+                val imageToPush = image.copy(remoteVersion = image.remoteVersion + 1)
+                firestoreSource.upsertNoteImage(workspaceId, image.noteId, imageToPush)
+                noteImageDao.upsert(imageToPush.copy(syncStatus = SyncStatus.SYNCED, localVersion = 0))
             } catch (e: Exception) {
                 Log.e(TAG, "Failed immediate sync for note image ${image.id}", e)
             }
+            // TODO: we need to update the remote image url after image upload 
         }
     }
 
@@ -68,8 +70,9 @@ class NoteImageRepositoryImpl @Inject constructor(
             // Immediate remote attempt for each
             images.forEach { image ->
                 try {
-                    firestoreSource.upsertNoteImage(workspaceId, image.noteId, image)
-                    noteImageDao.updateSyncStatus(image.id, SyncStatus.SYNCED)
+                    val imageToPush = image.copy(remoteVersion = image.remoteVersion + 1)
+                    firestoreSource.upsertNoteImage(workspaceId, image.noteId, imageToPush)
+                    noteImageDao.upsert(imageToPush.copy(syncStatus = SyncStatus.SYNCED, localVersion = 0))
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed immediate sync for note image ${image.id} in batch", e)
                 }
@@ -85,8 +88,9 @@ class NoteImageRepositoryImpl @Inject constructor(
             try {
                 val image = noteImageDao.getById(id)
                 if (image != null) {
-                    firestoreSource.upsertNoteImage(workspaceId, image.noteId, image)
-                    noteImageDao.updateSyncStatus(id, SyncStatus.SYNCED)
+                    val imageToPush = image.copy(remoteVersion = image.remoteVersion + 1)
+                    firestoreSource.upsertNoteImage(workspaceId, image.noteId, imageToPush)
+                    noteImageDao.upsert(imageToPush.copy(syncStatus = SyncStatus.SYNCED, localVersion = 0))
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed immediate sync for soft delete of note image $id", e)

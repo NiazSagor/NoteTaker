@@ -51,8 +51,9 @@ class SyncPendingWorker @AssistedInject constructor(
                     pendingNotes.forEach { note ->
                         try {
                             // Push local note changes to Firestore
-                            firestoreSource.upsertNote(workspaceId, note)
-                            noteDao.updateSyncStatus(note.id, SyncStatus.SYNCED)
+                            val noteToPush = note.copy(remoteVersion = note.remoteVersion + 1)
+                            firestoreSource.upsertNote(workspaceId, noteToPush)
+                            noteDao.upsert(noteToPush.copy(syncStatus = SyncStatus.SYNCED, localVersion = 0))
                         } catch (e: Exception) {
                             Log.e(TAG, "Failed to sync note ${note.id}: ${e.message}", e)
                             noteDao.updateSyncStatus(note.id, SyncStatus.ERROR)
@@ -65,8 +66,14 @@ class SyncPendingWorker @AssistedInject constructor(
                 if (pendingGridElements.isNotEmpty()) {
                     pendingGridElements.forEach { element ->
                         try {
-                            firestoreSource.upsertGridElement(workspaceId, element)
-                            gridElementDao.updateSyncStatus(element.id, SyncStatus.SYNCED)
+                            val elementToPush = element.copy(remoteVersion = element.remoteVersion + 1)
+                            firestoreSource.upsertGridElement(workspaceId, elementToPush)
+                            gridElementDao.upsert(
+                                elementToPush.copy(
+                                    syncStatus = SyncStatus.SYNCED,
+                                    localVersion = 0
+                                )
+                            )
                         } catch (e: Exception) {
                             Log.e(TAG, "Failed to sync grid element ${element.id}: ${e.message}", e)
                             gridElementDao.updateSyncStatus(element.id, SyncStatus.ERROR)
@@ -75,26 +82,26 @@ class SyncPendingWorker @AssistedInject constructor(
                     }
                 }
 
-                // --- Process Note Images ---
-                if (pendingNoteImages.isNotEmpty()) {
-                    pendingNoteImages.forEach { image ->
-                        try {
-                            // This syncs the metadata (like remoteImageUrl, orderInNote) to Firestore.
-                            // The actual image file upload is handled by CloudinaryUploadWorker.
-                            // We assume CloudinaryUploadWorker has already run and set remoteImageUrl and syncStatus to PENDING.
-                            firestoreSource.upsertNoteImage(workspaceId, image.noteId, image)
-                            noteImageDao.updateSyncStatus(image.id, SyncStatus.SYNCED)
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Failed to sync note image ${image.id}: ${e.message}", e)
-                            noteImageDao.updateUploadStatus(
-                                image.id,
-                                UploadStatus.FAILED
-                            ) // Also mark upload as failed if metadata sync fails
-                            noteImageDao.updateSyncStatus(image.id, SyncStatus.ERROR)
-                            overallSuccess = false
-                        }
-                    }
-                }
+                // --- todo Process Note Images ---
+//                if (pendingNoteImages.isNotEmpty()) {
+//                    pendingNoteImages.forEach { image ->
+//                        try {
+//                            // This syncs the metadata (like remoteImageUrl, orderInNote) to Firestore.
+//                            // The actual image file upload is handled by CloudinaryUploadWorker.
+//                            // We assume CloudinaryUploadWorker has already run and set remoteImageUrl and syncStatus to PENDING.
+//                            firestoreSource.upsertNoteImage(workspaceId, image.noteId, image)
+//                            noteImageDao.updateSyncStatus(image.id, SyncStatus.SYNCED)
+//                        } catch (e: Exception) {
+//                            Log.e(TAG, "Failed to sync note image ${image.id}: ${e.message}", e)
+//                            noteImageDao.updateUploadStatus(
+//                                image.id,
+//                                UploadStatus.FAILED
+//                            ) // Also mark upload as failed if metadata sync fails
+//                            noteImageDao.updateSyncStatus(image.id, SyncStatus.ERROR)
+//                            overallSuccess = false
+//                        }
+//                    }
+//                }
 
                 // Determine final result
                 if (overallSuccess) {

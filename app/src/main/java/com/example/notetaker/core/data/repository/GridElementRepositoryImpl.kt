@@ -55,8 +55,14 @@ class GridElementRepositoryImpl @Inject constructor(
 
             // Immediate remote attempt
             try {
-                firestoreSource.upsertGridElement(workspaceId, element)
-                gridElementDao.updateSyncStatus(element.id, SyncStatus.SYNCED)
+                val elementToPush = element.copy(remoteVersion = element.remoteVersion + 1)
+                firestoreSource.upsertGridElement(workspaceId, elementToPush)
+                gridElementDao.upsert(
+                    elementToPush.copy(
+                        syncStatus = SyncStatus.SYNCED,
+                        localVersion = 0
+                    )
+                )
             } catch (e: Exception) {
                 Log.e(TAG, "Failed immediate sync for grid element ${element.id}", e)
             }
@@ -71,8 +77,14 @@ class GridElementRepositoryImpl @Inject constructor(
             try {
                 val element = gridElementDao.getById(id)
                 if (element != null) {
-                    firestoreSource.upsertGridElement(workspaceId, element)
-                    gridElementDao.updateSyncStatus(id, SyncStatus.SYNCED)
+                    val elementToPush = element.copy(remoteVersion = element.remoteVersion + 1)
+                    firestoreSource.upsertGridElement(workspaceId, elementToPush)
+                    gridElementDao.upsert(
+                        elementToPush.copy(
+                            syncStatus = SyncStatus.SYNCED,
+                            localVersion = 0
+                        )
+                    )
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed immediate sync for soft delete of grid element $id", e)

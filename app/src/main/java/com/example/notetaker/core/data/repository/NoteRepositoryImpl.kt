@@ -55,10 +55,16 @@ class NoteRepositoryImpl @Inject constructor(
 
             // Immediate remote attempt
             try {
-                firestoreSource.upsertNote(workspaceId, note)
-                noteDao.updateSyncStatus(note.id, SyncStatus.SYNCED)
+                val noteToPush = note.copy(remoteVersion = note.remoteVersion + 1)
+                firestoreSource.upsertNote(workspaceId, noteToPush)
+                // Success! Update local record to match server
+                noteDao.upsert(noteToPush.copy(syncStatus = SyncStatus.SYNCED, localVersion = 0))
             } catch (e: Exception) {
-                Log.e(TAG, "Failed immediate sync for note ${note.id}, will retry via WorkManager", e)
+                Log.e(
+                    TAG,
+                    "Failed immediate sync for note ${note.id}, will retry via WorkManager",
+                    e
+                )
             }
         }
     }
@@ -71,8 +77,14 @@ class NoteRepositoryImpl @Inject constructor(
             try {
                 val note = noteDao.getNote(id)
                 if (note != null) {
-                    firestoreSource.upsertNote(workspaceId, note)
-                    noteDao.updateSyncStatus(id, SyncStatus.SYNCED)
+                    val noteToPush = note.copy(remoteVersion = note.remoteVersion + 1)
+                    firestoreSource.upsertNote(workspaceId, noteToPush)
+                    noteDao.upsert(
+                        noteToPush.copy(
+                            syncStatus = SyncStatus.SYNCED,
+                            localVersion = 0
+                        )
+                    )
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed immediate sync for soft delete of note $id", e)

@@ -49,10 +49,13 @@ class SyncProcessor @Inject constructor(
                 )
 
                 when (conflictType) {
+                    ConflictType.STALE, ConflictType.NO_CHANGE -> {
+                        // Ignore stale or redundant updates
+                    }
                     ConflictType.REMOTE_ADVANCED -> {
                         // Case 1: Safe to apply remote changes directly.
                         val updatedLocalNote = remoteNote.copy(
-                            localVersion = 0, // Reset local changes
+                            localVersion = 0, // Reset local changes as we have none against this remote
                             syncStatus = SyncStatus.SYNCED
                         )
                         noteDao.upsert(updatedLocalNote)
@@ -100,8 +103,8 @@ class SyncProcessor @Inject constructor(
             val localElement = gridElementDao.getById(remoteElement.id)
 
             if (localElement != null) {
-                // LAST WRITE WINS for non-text fields (Section 6.5)
-                if (remoteElement.remoteVersion > localElement.remoteVersion || remoteElement.isDeleted) {
+                // LAST WRITE WINS but ignore stale (Section 6.5)
+                if (remoteElement.remoteVersion > localElement.remoteVersion) {
                     if (remoteElement.isDeleted) {
                         gridElementDao.deleteById(remoteElement.id)
                     } else {
@@ -117,10 +120,6 @@ class SyncProcessor @Inject constructor(
                 if (!remoteElement.isDeleted) {
                     gridElementDao.upsert(remoteElement.copy(syncStatus = SyncStatus.SYNCED))
                 }
-//                else {
-//                    // Remote element is deleted, ensure local reflects this.
-//                    gridElementDao.deleteById(remoteElement.id)
-//                }
             }
         }
     }
@@ -130,8 +129,8 @@ class SyncProcessor @Inject constructor(
             val localImage = noteImageDao.getById(remoteImage.id)
 
             if (localImage != null) {
-                // LAST WRITE WINS for non-text fields (Section 6.5)
-                if (remoteImage.remoteVersion > localImage.remoteVersion || remoteImage.isDeleted) {
+                // LAST WRITE WINS but ignore stale (Section 6.5)
+                if (remoteImage.remoteVersion > localImage.remoteVersion) {
                     if (remoteImage.isDeleted) {
                         noteImageDao.deleteById(remoteImage.id)
                     } else {
@@ -146,9 +145,6 @@ class SyncProcessor @Inject constructor(
                 // Local image doesn't exist, handle new remote images.
                 if (!remoteImage.isDeleted) {
                     noteImageDao.upsert(remoteImage.copy(syncStatus = SyncStatus.SYNCED))
-                } else {
-                    // Remote image is deleted, ensure local reflects this.
-                    noteImageDao.deleteById(remoteImage.id)
                 }
             }
         }
