@@ -1,5 +1,6 @@
 package com.example.notetaker.core.network.firebase
 
+import android.util.Log
 import com.example.notetaker.core.data.db.entity.GridElementEntity
 import com.example.notetaker.core.data.db.entity.NoteEntity
 import com.example.notetaker.core.data.db.entity.NoteImageEntity
@@ -16,6 +17,7 @@ import javax.inject.Singleton
 class FirestoreSource @Inject constructor(
     private val firestore: FirebaseFirestore
 ) {
+    private val TAG = "FirestoreSource"
     // --- Note Firestore Operations ---
     fun observeNotes(workspaceId: String): Flow<List<NoteEntity>> = callbackFlow {
         val listener = firestore.collection("workspaces")
@@ -32,6 +34,7 @@ class FirestoreSource @Inject constructor(
                     // Firestore's toObjects can directly map to Room entities if field names match exactly.
                     // We assume NoteEntity fields match Firestore document fields for simplicity.
                     val notes = snapshot.toObjects(NoteEntity::class.java)
+                    Log.e(TAG, "observeNotes: notes $notes", )
                     trySend(notes)
                 }
             }

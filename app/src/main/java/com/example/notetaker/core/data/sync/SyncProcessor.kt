@@ -56,6 +56,10 @@ class SyncProcessor @Inject constructor(
                     remoteVersionAtLocal = localNote.remoteVersion,
                     incomingRemoteVersion = remoteNote.remoteVersion
                 )
+
+                Log.e(TAG, "syncRemoteNote: localNote.remoteVersion ${localNote.remoteVersion}", )
+                Log.e(TAG, "syncRemoteNote: localNote.localVersion ${localNote.localVersion}", )
+                Log.e(TAG, "syncRemoteNote: remoteNote remoteVersion = ${remoteNote.remoteVersion}", )
                 Log.e(TAG, "syncRemoteNote: conflictType $conflictType", )
 
                 when (conflictType) {

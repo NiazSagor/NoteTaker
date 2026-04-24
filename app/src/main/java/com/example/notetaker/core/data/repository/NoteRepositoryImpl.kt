@@ -4,6 +4,7 @@ import android.util.Log
 import com.example.notetaker.core.data.db.dao.ConflictDao
 import com.example.notetaker.core.data.db.dao.NoteDao
 import com.example.notetaker.core.data.db.entity.NoteEntity
+import com.example.notetaker.core.data.sync.SyncManager
 import com.example.notetaker.core.data.sync.SyncProcessor
 import com.example.notetaker.core.domain.di.IoDispatcher
 import com.example.notetaker.core.domain.model.SyncStatus
@@ -29,6 +30,7 @@ class NoteRepositoryImpl @Inject constructor(
     private val firestoreSource: FirestoreSource,
     private val authRepository: AuthRepository,
     private val syncProcessor: SyncProcessor,
+    private val syncManager: SyncManager,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     private val appScope: CoroutineScope // Injected application-scoped CoroutineScope
 ) : NoteRepository {
@@ -49,30 +51,16 @@ class NoteRepositoryImpl @Inject constructor(
     }
 
     override suspend fun saveNote(note: NoteEntity) {
-        withContext(ioDispatcher) {
-            // Local save first (optimistic update)
-            noteDao.upsert(note)
-            // Immediate remote attempt
-            try {
-                // TODO:  syncStatus appears = PENDING in firestore
-                val noteToPush = note.copy(remoteVersion = note.remoteVersion + 1)
-                firestoreSource.upsertNote(workspaceId, noteToPush)
-                // Success! Update local record to match server
-                noteDao.upsert(noteToPush.copy(syncStatus = SyncStatus.SYNCED, localVersion = 0))
-            } catch (e: Exception) {
-                Log.e(
-                    TAG,
-                    "Failed immediate sync for note ${note.id}, will retry via WorkManager",
-                    e
-                )
-            }
-        }
+        // Local save first (optimistic update)
+        noteDao.upsert(note)
+        syncManager.syncNote(note.id)
+        // TODO:  syncStatus appears = PENDING in firestore
     }
 
     override suspend fun softDeleteNote(id: String) {
         withContext(ioDispatcher) {
             noteDao.softDelete(id)
-
+            // TODO: use work manager 
             // Immediate remote attempt for soft delete (tombstone)
             try {
                 val note = noteDao.getNote(id)

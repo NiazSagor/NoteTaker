@@ -43,3 +43,10 @@ class NoteTakerApplication : Application() {
         // 6. Navigation: Implement navigation between screens.
     }
 }
+
+//interface SyncNoteWorkerFactory {
+//    fun create(
+//        context: Context,
+//        params: WorkerParameters
+//    ): SyncNoteWorker
+//}
