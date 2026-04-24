@@ -52,7 +52,6 @@ class NoteRepositoryImpl @Inject constructor(
         withContext(ioDispatcher) {
             // Local save first (optimistic update)
             noteDao.upsert(note)
-
             // Immediate remote attempt
             try {
                 // TODO:  syncStatus appears = PENDING in firestore

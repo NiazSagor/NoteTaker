@@ -9,6 +9,8 @@ import com.example.notetaker.core.domain.model.SyncStatus
 import com.example.notetaker.core.domain.repository.GridElementRepository
 import com.example.notetaker.core.domain.repository.NoteRepository
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import java.util.UUID
 import javax.inject.Inject
 
@@ -50,10 +52,14 @@ class CreateNoteUseCase @Inject constructor(
             noteId = noteId,
             syncStatus = SyncStatus.PENDING
         )
-
-        noteRepository.saveNote(note)
-        gridElementRepository.saveGridElement(gridElement)
-
+        coroutineScope {
+            launch {
+                noteRepository.saveNote(note)
+            }
+            launch {
+                gridElementRepository.saveGridElement(gridElement)
+            }
+        }
         return noteId
     }
 }

@@ -2,7 +2,6 @@ package com.example.notetaker
 
 import android.app.Application
 import android.util.Log
-import com.example.notetaker.core.data.sync.SyncPendingWorker
 import dagger.hilt.android.HiltAndroidApp
 
 @HiltAndroidApp

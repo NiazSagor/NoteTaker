@@ -27,6 +27,7 @@ class FirestoreSource @Inject constructor(
                     close(error)
                     return@addSnapshotListener
                 }
+                if (snapshot?.metadata?.hasPendingWrites() == true) return@addSnapshotListener
                 if (snapshot != null) {
                     // Firestore's toObjects can directly map to Room entities if field names match exactly.
                     // We assume NoteEntity fields match Firestore document fields for simplicity.
@@ -57,6 +58,7 @@ class FirestoreSource @Inject constructor(
                     close(error)
                     return@addSnapshotListener
                 }
+                if (snapshot?.metadata?.hasPendingWrites() == true) return@addSnapshotListener
                 if (snapshot != null) {
                     val elements = snapshot.toObjects(GridElementEntity::class.java)
                     trySend(elements)
@@ -76,25 +78,27 @@ class FirestoreSource @Inject constructor(
     }
 
     // --- NoteImage Firestore Operations ---
-    fun observeNoteImages(workspaceId: String, noteId: String): Flow<List<NoteImageEntity>> = callbackFlow {
-        val listener = firestore.collection("workspaces")
-            .document(workspaceId)
-            .collection("notes")
-            .document(noteId)
-            .collection("noteImages")
-            .orderBy("orderInNote", Query.Direction.ASCENDING) // Order within the note
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    close(error)
-                    return@addSnapshotListener
+    fun observeNoteImages(workspaceId: String, noteId: String): Flow<List<NoteImageEntity>> =
+        callbackFlow {
+            val listener = firestore.collection("workspaces")
+                .document(workspaceId)
+                .collection("notes")
+                .document(noteId)
+                .collection("noteImages")
+                .orderBy("orderInNote", Query.Direction.ASCENDING) // Order within the note
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        close(error)
+                        return@addSnapshotListener
+                    }
+                    if (snapshot?.metadata?.hasPendingWrites() == true) return@addSnapshotListener
+                    if (snapshot != null) {
+                        val images = snapshot.toObjects(NoteImageEntity::class.java)
+                        trySend(images)
+                    }
                 }
-                if (snapshot != null) {
-                    val images = snapshot.toObjects(NoteImageEntity::class.java)
-                    trySend(images)
-                }
-            }
-        awaitClose { listener.remove() }
-    }
+            awaitClose { listener.remove() }
+        }
 
     suspend fun upsertNoteImage(workspaceId: String, noteId: String, image: NoteImageEntity) {
         // Filter out local-only fields if any.
