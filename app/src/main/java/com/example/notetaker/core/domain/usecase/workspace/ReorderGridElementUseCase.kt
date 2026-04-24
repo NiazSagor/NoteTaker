@@ -15,12 +15,13 @@ data class ReorderParams(
 class ReorderGridElementUseCase @Inject constructor(
     private val repository: GridElementRepository,
     @IoDispatcher dispatcher: CoroutineDispatcher
-) : UseCase<com.example.notetaker.core.domain.usecase.workspace.ReorderParams, Unit>(dispatcher) {
-    override suspend fun execute(parameters: com.example.notetaker.core.domain.usecase.workspace.ReorderParams) {
+) : UseCase<ReorderParams, Unit>(dispatcher) {
+    override suspend fun execute(parameters: ReorderParams) {
         val element = repository.getGridElement(parameters.elementId) ?: return
         val updatedElement = element.copy(
             orderIndex = parameters.newOrderIndex,
             syncStatus = SyncStatus.PENDING,
+            localVersion = element.localVersion + 1,
             updatedAt = System.currentTimeMillis()
         )
         repository.saveGridElement(updatedElement)
