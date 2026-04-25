@@ -1,6 +1,7 @@
 package com.example.notetaker.core.data.sync
 
 import android.content.Context
+import androidx.work.WorkManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -18,6 +19,12 @@ class SyncManager @Inject constructor(
     }
 
     fun syncNoteImage(imageId: String) {
-        SyncNoteImageWorker.enqueue(context, imageId)
+        val uploadRequest = ImageKitUploadWorker.createWorkRequest(imageId)
+        val syncRequest = SyncNoteImageWorker.createWorkRequest(imageId)
+
+        WorkManager.getInstance(context)
+            .beginWith(uploadRequest)
+            .then(syncRequest)
+            .enqueue()
     }
 }

@@ -49,11 +49,12 @@ class SyncNoteImageWorker @AssistedInject constructor(
     }
 
     companion object {
-        fun enqueue(context: Context, imageId: String) {
-            val request = OneTimeWorkRequestBuilder<SyncNoteImageWorker>()
+
+        fun createWorkRequest(imageId: String): androidx.work.OneTimeWorkRequest {
+            return OneTimeWorkRequestBuilder<SyncNoteImageWorker>()
                 .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .setInputData(
-                    workDataOf("imageId" to imageId)
+                    androidx.work.workDataOf("imageId" to imageId)
                 )
                 .setConstraints(
                     Constraints.Builder()
@@ -61,9 +62,6 @@ class SyncNoteImageWorker @AssistedInject constructor(
                         .build()
                 )
                 .build()
-
-            WorkManager.getInstance(context)
-                .enqueue(request)
         }
     }
 }
