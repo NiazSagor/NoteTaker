@@ -1,29 +1,25 @@
 package com.example.notetaker.feature.editor
 
 import android.content.Context
+import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.notetaker.core.domain.base.Result
 import com.example.notetaker.core.data.db.entity.NoteEntity
 import com.example.notetaker.core.data.db.entity.NoteImageEntity
-import com.example.notetaker.core.data.sync.CloudinaryUploadWorker
+import com.example.notetaker.core.domain.base.Result
 import com.example.notetaker.core.domain.usecase.auth.ObserveUserIdUseCase
-import com.example.notetaker.core.domain.usecase.image.AddNoteImageParams
-import com.example.notetaker.core.domain.usecase.image.AddNoteImageUseCase
-import com.example.notetaker.core.domain.usecase.image.ObserveNoteImagesUseCase
-import com.example.notetaker.core.domain.usecase.image.UpdateNoteImageRotationUseCase
-import com.example.notetaker.core.domain.usecase.image.UpdateRotationParams
+import com.example.notetaker.core.domain.usecase.image.*
 import com.example.notetaker.core.domain.usecase.note.ObserveNoteUseCase
 import com.example.notetaker.core.domain.usecase.note.UpdateNoteParams
 import com.example.notetaker.core.domain.usecase.note.UpdateNoteUseCase
+import com.example.notetaker.core.util.FileUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import kotlin.onSuccess
 
 data class NoteEditorUiState(
     val note: NoteEntity? = null,
@@ -63,7 +59,7 @@ class NoteEditorViewModel @Inject constructor(
     private val updateNoteImageRotationUseCase: UpdateNoteImageRotationUseCase,
     private val observeUserIdUseCase: ObserveUserIdUseCase,
     private val savedStateHandle: SavedStateHandle,
-    @ApplicationContext private val context: Context // Inject context to enqueue worker
+    @ApplicationContext private val context: Context /// TODO: remove context injection 
 ) : ViewModel() {
     private val TAG = "NoteEditorViewModel"
     private val userEditTrigger = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
@@ -99,11 +95,10 @@ class NoteEditorViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             note = note,
-                            draftTitle = /*savedStateHandle["draftTitle"] ?:*/ note.title,
-                            draftContent = /*savedStateHandle["draftContent"] ?:*/ note.content
+                            draftTitle = note.title,
+                            draftContent = note.content
                         )
                     }
-                    Log.e(TAG, "observeNote: note $note", )
                 }
             }
             .launchIn(viewModelScope)
@@ -130,17 +125,13 @@ class NoteEditorViewModel @Inject constructor(
         when (event) {
             is NoteEditorEvent.OnTitleChange -> {
                 _uiState.update { it.copy(draftTitle = event.newTitle) }
-                //savedStateHandle["draftTitle"] = event.newTitle
                 userEditTrigger.tryEmit(Unit)
             }
             is NoteEditorEvent.OnContentChange -> {
                 _uiState.update { it.copy(draftContent = event.newContent) }
-                //savedStateHandle["draftContent"] = event.newContent
                 userEditTrigger.tryEmit(Unit)
             }
-            is NoteEditorEvent.OnAddImage -> {
-                addImage(event.uri)
-            }
+            is NoteEditorEvent.OnAddImage -> addImage(event.uri)
             is NoteEditorEvent.OnImageSelected -> {
                 _uiState.update { it.copy(interactionState = ImageInteractionState.Selected(event.imageId)) }
             }
@@ -160,7 +151,7 @@ class NoteEditorViewModel @Inject constructor(
     }
 
     private fun saveNote() {
-        val userId = "NIAZ" /*uiState.value.userId ?: return*/
+        val userId = "NIAZ" // uiState.value.userId ?: "ANONYMOUS"
         viewModelScope.launch {
             updateNoteUseCase(
                 UpdateNoteParams(
@@ -173,27 +164,24 @@ class NoteEditorViewModel @Inject constructor(
         }
     }
 
-    private fun addImage(uri: String) {
-        val userId = "NIAZ" /*uiState.value.userId ?: return*/
+    private fun addImage(uriString: String) {
+        val userId = "NIAZ" // uiState.value.userId ?: "ANONYMOUS"
         viewModelScope.launch {
-            addNoteImageUseCase(
-                AddNoteImageParams(
-                    noteId = noteId,
-                    workspaceId = workspaceId,
-                    localUri = uri,
-                    userId = userId,
-                    orderInNote = uiState.value.images.size // Append to the end
+            val sourceUri = Uri.parse(uriString)
+            val internalUri = FileUtils.copyUriToInternalStorage(context, sourceUri, "note_images")
+            if (internalUri != null) {
+                addNoteImageUseCase(
+                    AddNoteImageParams(
+                        noteId = noteId,
+                        workspaceId = workspaceId,
+                        localUri = internalUri.toString(),
+                        userId = userId,
+                        orderInNote = uiState.value.images.size
+                    )
                 )
-            )
-
-//                .onSuccess {
-//                // Once the NoteImageEntity is saved locally with PENDING status,
-//                // enqueue the CloudinaryUploadWorker to handle the actual file upload.
-//                //CloudinaryUploadWorker.enqueue(context)
-//            }.onFailure { error ->
-//                // Handle potential errors during local save of image metadata
-//                Log.e("NoteEditorViewModel", "Failed to add image locally: ${error.message}", error)
-//            }
+            } else {
+                Log.e(TAG, "Failed to copy image to internal storage")
+            }
         }
     }
 
