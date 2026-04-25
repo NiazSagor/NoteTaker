@@ -80,4 +80,20 @@ class GridElementRepositoryImpl @Inject constructor(
                 .launchIn(appScope)
         }
     }
+
+    private fun observeRemoteNoteImages(noteId: String) {
+        appScope.launch {
+            firestoreSource.observeNoteImages(workspaceId, noteId)
+                .flowOn(ioDispatcher)
+                .onEach { remoteImages ->
+                    remoteImages.forEach { remoteImage ->
+                        syncProcessor.syncRemoteNoteImage(remoteImage)
+                    }
+                }
+                .catch { e ->
+                    Log.e(TAG, "Error observing remote note images for note $noteId", e)
+                }
+                .launchIn(appScope)
+        }
+    }
 }
