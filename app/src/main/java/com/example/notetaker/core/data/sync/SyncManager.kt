@@ -18,7 +18,7 @@ class SyncManager @Inject constructor(
     }
 
     fun syncNoteImage(imageId: String) {
-        val uploadRequest = ImageKitUploadWorker.createWorkRequest(imageId)
+        val uploadRequest = UploadWorker.createWorkRequest(imageId)
         val syncRequest = SyncNoteImageWorker.createWorkRequest(imageId)
 
         WorkManager.getInstance(context)

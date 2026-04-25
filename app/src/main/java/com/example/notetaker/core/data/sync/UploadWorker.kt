@@ -1,33 +1,34 @@
 package com.example.notetaker.core.data.sync
 
 import android.content.Context
+import android.net.Uri
 import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
-import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
-import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.example.notetaker.core.data.db.dao.NoteImageDao
+import com.example.notetaker.core.data.db.entity.NoteImageEntity
 import com.example.notetaker.core.domain.model.SyncStatus
 import com.example.notetaker.core.domain.model.UploadStatus
-import com.example.notetaker.core.network.imagekit.ImageKitUploadClient
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.storage.storage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.withContext
 
 @HiltWorker
-class ImageKitUploadWorker @AssistedInject constructor(
-    @Assisted appContext: Context,
+class UploadWorker @AssistedInject constructor(
+    @Assisted private val appContext: Context,
     @Assisted workerParams: WorkerParameters,
     private val noteImageDao: NoteImageDao,
-    private val imageKitUploadClient: ImageKitUploadClient
+    private val supabase: SupabaseClient,
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result {
@@ -49,12 +50,7 @@ class ImageKitUploadWorker @AssistedInject constructor(
                     async {
                         try {
                             noteImageDao.updateUploadStatus(image.id, UploadStatus.UPLOADING)
-
-                            val remoteUrl = imageKitUploadClient.uploadImage(
-                                image.localImageUri ?: throw Exception("No local URI"),
-                                "note_image_${image.id}.jpg"
-                            )
-
+                            val remoteUrl = uploadNoteImage(image)
                             val updatedImage = image.copy(
                                 remoteImageUrl = remoteUrl,
                                 uploadStatus = UploadStatus.DONE,
@@ -87,11 +83,26 @@ class ImageKitUploadWorker @AssistedInject constructor(
         }
     }
 
+    private suspend fun uploadNoteImage(
+        image: NoteImageEntity
+    ): String {
+        return withContext(Dispatchers.IO) {
+            val imageUri = Uri.parse(image.localImageUri)
+            val inputStream =
+                appContext.contentResolver.openInputStream(imageUri)
+                    ?: throw Exception("Note image URI is invalid")
+            val byteArray = inputStream.readBytes()
+            val fileName = "public/${image.id}.jpg"
+            supabase.storage.from("notes").upload(path = fileName, data = byteArray)
+            supabase.storage.from("notes").publicUrl(fileName)
+        }
+    }
+
     companion object {
         private const val UPLOAD_WORKER_TAG = "imagekit_upload_worker"
 
         fun createWorkRequest(imageId: String): androidx.work.OneTimeWorkRequest {
-            return OneTimeWorkRequestBuilder<ImageKitUploadWorker>()
+            return OneTimeWorkRequestBuilder<UploadWorker>()
                 .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .setInputData(androidx.work.workDataOf("imageId" to imageId))
                 .setConstraints(
