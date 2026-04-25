@@ -45,6 +45,9 @@ class WorkspaceViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(WorkspaceUiState())
     val uiState: StateFlow<WorkspaceUiState> = _uiState.asStateFlow()
 
+    private val _navigateToNoteEditor = MutableSharedFlow<String>()
+    val navigateToNoteEditor: SharedFlow<String> = _navigateToNoteEditor
+
     init {
         observeAuth()
         observeGridElements()
@@ -101,8 +104,16 @@ class WorkspaceViewModel @Inject constructor(
         val nextOrderIndex = (uiState.value.gridElements.lastOrNull()?.element?.orderIndex ?: 0.0) + 1.0
 
         viewModelScope.launch {
-            createNoteUseCase(CreateNoteParams(workspaceId, userId, nextOrderIndex))
+            try {
+                val result = createNoteUseCase(CreateNoteParams(workspaceId, userId, nextOrderIndex))
+                if (result is Result.Success) {
+                    _navigateToNoteEditor.emit(result.data)
+                }
+            } catch (e: Exception) {
+                // Handle error, e.g., show a toast or update error state
+            }
         }
+
     }
 
     private fun reorder(elementId: String, newOrderIndex: Double) {
