@@ -4,19 +4,16 @@ import android.util.Log
 import com.example.notetaker.core.data.db.dao.ConflictDao
 import com.example.notetaker.core.data.db.dao.GridElementDao
 import com.example.notetaker.core.data.db.entity.GridElementEntity
-import com.example.notetaker.core.data.db.entity.GridElementWithContent
 import com.example.notetaker.core.data.sync.SyncManager
 import com.example.notetaker.core.data.sync.SyncProcessor
 import com.example.notetaker.core.domain.di.IoDispatcher
+import com.example.notetaker.core.domain.model.GridElement
+import com.example.notetaker.core.domain.model.GridElementWithContent
 import com.example.notetaker.core.domain.repository.GridElementRepository
 import com.example.notetaker.core.network.firebase.FirestoreSource
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -42,11 +39,12 @@ class GridElementRepositoryImpl @Inject constructor(
 
     override fun observeGridElementsWithContent(workspaceId: String): Flow<List<GridElementWithContent>> {
         return gridElementDao.observeGridElementsWithContent(workspaceId)
+            .map { list -> list.map { it.toDomain() } }
     }
 
-    override suspend fun getGridElement(id: String): GridElementEntity? =
+    override suspend fun getGridElement(id: String): GridElement? =
         withContext(ioDispatcher) {
-            gridElementDao.getById(id)
+            gridElementDao.getById(id)?.toDomain()
         }
 
     override suspend fun saveGridElement(element: GridElementEntity) {

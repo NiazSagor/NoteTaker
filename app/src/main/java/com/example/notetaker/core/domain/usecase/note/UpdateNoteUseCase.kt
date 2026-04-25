@@ -1,5 +1,6 @@
 package com.example.notetaker.core.domain.usecase.note
 
+import com.example.notetaker.core.data.db.dao.NoteDao
 import com.example.notetaker.core.domain.base.UseCase
 import com.example.notetaker.core.domain.di.IoDispatcher
 import com.example.notetaker.core.domain.model.SyncStatus
@@ -15,11 +16,12 @@ data class UpdateNoteParams(
 )
 
 class UpdateNoteUseCase @Inject constructor(
+    private val noteDao: NoteDao,
     private val repository: NoteRepository,
     @IoDispatcher dispatcher: CoroutineDispatcher
 ) : UseCase<UpdateNoteParams, Unit>(dispatcher) {
     override suspend fun execute(parameters: UpdateNoteParams) {
-        val note = repository.getNote(parameters.noteId) ?: return
+        val note = noteDao.getNote(parameters.noteId) ?: return
         val updatedNote = note.copy(
             title = parameters.title,
             content = parameters.content,

@@ -34,7 +34,7 @@ class SyncNoteImageWorker @AssistedInject constructor(
 
         return try {
             val imageToPush = image.copy(remoteVersion = image.remoteVersion + 1)
-            firestore.upsertNoteImage(workspaceId, image.noteId, imageToPush)
+            firestore.upsertNoteImage(workspaceId, image.noteId, imageToPush.toDto())
             noteImageDao.upsert(
                 imageToPush.copy(
                     syncStatus = SyncStatus.SYNCED,

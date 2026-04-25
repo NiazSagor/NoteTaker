@@ -52,7 +52,7 @@ class SyncPendingWorker @AssistedInject constructor(
                         try {
                             // Push local note changes to Firestore
                             val noteToPush = note.copy(remoteVersion = note.remoteVersion + 1)
-                            firestoreSource.upsertNote(workspaceId, noteToPush)
+                            firestoreSource.upsertNote(workspaceId, noteToPush.toDto())
                             noteDao.upsert(noteToPush.copy(syncStatus = SyncStatus.SYNCED, localVersion = 0))
                         } catch (e: Exception) {
                             Log.e(TAG, "Failed to sync note ${note.id}: ${e.message}", e)
@@ -67,7 +67,7 @@ class SyncPendingWorker @AssistedInject constructor(
                     pendingGridElements.forEach { element ->
                         try {
                             val elementToPush = element.copy(remoteVersion = element.remoteVersion + 1)
-                            firestoreSource.upsertGridElement(workspaceId, elementToPush)
+                            firestoreSource.upsertGridElement(workspaceId, elementToPush.toDto())
                             gridElementDao.upsert(
                                 elementToPush.copy(
                                     syncStatus = SyncStatus.SYNCED,

@@ -5,6 +5,8 @@ import androidx.room.PrimaryKey
 import com.example.notetaker.core.domain.model.GridElementType
 import com.example.notetaker.core.domain.model.SyncStatus
 import com.example.notetaker.core.domain.model.UploadStatus
+import com.example.notetaker.core.domain.model.GridElement
+import com.example.notetaker.core.network.firebase.model.GridElementDto
 
 @Entity(tableName = "grid_elements")
 data class GridElementEntity(
@@ -34,21 +36,38 @@ data class GridElementEntity(
     val lastSyncError: String? = null,
     val debugTag: String? = null               // DEBUG: human label for logging
 ) {
-    fun toFirestoreMap(): Map<String, Any?> {
-        return mapOf(
-            "id" to id,
-            "workspaceId" to workspaceId,
-            "type" to type.name,
-            "orderIndex" to orderIndex,
-            "createdAt" to createdAt,
-            "updatedAt" to updatedAt,
-            "createdBy" to createdBy,
-            "noteId" to noteId,
-            "localImageUri" to localImageUri,
-            "remoteImageUrl" to remoteImageUrl,
-            "uploadStatus" to uploadStatus.name,
-            "remoteVersion" to remoteVersion,
-            "deleted" to deleted
+    fun toDomain(): GridElement {
+        return GridElement(
+            id = id,
+            workspaceId = workspaceId,
+            type = type,
+            orderIndex = orderIndex,
+            createdAt = createdAt,
+            updatedAt = updatedAt,
+            createdBy = createdBy,
+            noteId = noteId,
+            localImageUri = localImageUri,
+            remoteImageUrl = remoteImageUrl,
+            uploadStatus = uploadStatus,
+            syncStatus = syncStatus,
+            remoteVersion = remoteVersion,
+            deleted = deleted
+        )
+    }
+
+    fun toDto(): GridElementDto {
+        return GridElementDto(
+            id = id,
+            workspaceId = workspaceId,
+            type = type.name,
+            orderIndex = orderIndex,
+            createdAt = createdAt,
+            updatedAt = updatedAt,
+            createdBy = createdBy,
+            noteId = noteId,
+            remoteImageUrl = remoteImageUrl,
+            remoteVersion = remoteVersion,
+            deleted = deleted
         )
     }
 }

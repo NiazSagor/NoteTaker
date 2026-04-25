@@ -6,10 +6,10 @@ import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.notetaker.core.data.db.entity.NoteEntity
-import com.example.notetaker.core.data.db.entity.NoteImageEntity
 import com.example.notetaker.core.data.sync.ImageKitUploadWorker
 import com.example.notetaker.core.domain.base.Result
+import com.example.notetaker.core.domain.model.Note
+import com.example.notetaker.core.domain.model.NoteImage
 import com.example.notetaker.core.domain.usecase.auth.ObserveUserIdUseCase
 import com.example.notetaker.core.domain.usecase.image.*
 import com.example.notetaker.core.domain.usecase.note.ObserveNoteUseCase
@@ -23,8 +23,8 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class NoteEditorUiState(
-    val note: NoteEntity? = null,
-    val images: List<NoteImageEntity> = emptyList(),
+    val note: Note? = null,
+    val images: List<NoteImage> = emptyList(),
     val draftTitle: String = "",
     val draftContent: String = "",
     val userId: String? = null,

@@ -34,7 +34,7 @@ class SyncGridElementWorker @AssistedInject constructor(
 
         return try {
             val elementToPush = element.copy(remoteVersion = element.remoteVersion + 1)
-            firestore.upsertGridElement(workspaceId, elementToPush)
+            firestore.upsertGridElement(workspaceId, elementToPush.toDto())
             gridElementDao.upsert(
                 elementToPush.copy(
                     syncStatus = SyncStatus.SYNCED,

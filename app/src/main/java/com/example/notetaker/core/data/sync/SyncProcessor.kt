@@ -9,12 +9,17 @@ import com.example.notetaker.core.data.db.entity.ConflictEntity
 import com.example.notetaker.core.data.db.entity.GridElementEntity
 import com.example.notetaker.core.data.db.entity.NoteEntity
 import com.example.notetaker.core.data.db.entity.NoteImageEntity
+import com.example.notetaker.core.domain.model.SyncStatus
+import com.example.notetaker.core.domain.model.UploadStatus
+import com.example.notetaker.core.domain.repository.AuthRepository
+import com.example.notetaker.core.domain.repository.ConflictRepository
+import com.example.notetaker.core.network.firebase.FirestoreSource
+import com.example.notetaker.core.network.firebase.model.GridElementDto
+import com.example.notetaker.core.network.firebase.model.NoteDto
+import com.example.notetaker.core.network.firebase.model.NoteImageDto
 import com.example.notetaker.core.domain.conflict.ConflictDetector
 import com.example.notetaker.core.domain.conflict.ConflictType
 import com.example.notetaker.core.domain.di.IoDispatcher
-import com.example.notetaker.core.domain.model.SyncStatus
-import com.example.notetaker.core.domain.repository.AuthRepository
-import com.example.notetaker.core.domain.repository.ConflictRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.withContext
@@ -35,20 +40,22 @@ class SyncProcessor @Inject constructor(
 ) {
 
     private val TAG = "SyncProcessor"
-    private val workspaceId = "global_workspace" // Assuming a single global workspace
+    private val workspaceId = "global_workspace" // Hardcoded for now
 
-    suspend fun syncRemoteNote(remoteNote: NoteEntity) {
+    // Updated to accept NoteDto and use its toEntity mapping
+    suspend fun syncRemoteNote(remoteNoteDto: NoteDto) {
         withContext(ioDispatcher) {
-            val localNote = noteDao.getNote(remoteNote.id)
+            val localNote = noteDao.getNote(remoteNoteDto.id)
 
             if (localNote != null) {
-
-                val isDeleted = remoteNote.deleted
+                val isDeleted = remoteNoteDto.deleted
 
                 if (isDeleted) {
-                    noteDao.deleteById(remoteNote.id)
+                    noteDao.deleteById(remoteNoteDto.id)
                     return@withContext
                 }
+
+                val remoteNote = remoteNoteDto.toEntity(SyncStatus.SYNCED)
 
                 // Local entity exists, perform conflict detection
                 val conflictType = ConflictDetector.detect(
@@ -85,14 +92,15 @@ class SyncProcessor @Inject constructor(
                         )
                         noteDao.upsert(updatedLocalNote)
                     }
+                    // TODO: move convertNoteEntityToJson from dao 
                     ConflictType.TRUE_CONFLICT -> {
                         // Case 4: TRUE CONFLICT
                         val conflict = ConflictEntity(
                             id = UUID.randomUUID().toString(),
                             noteId = remoteNote.id,
                             workspaceId = workspaceId,
-                            localSnapshot = noteDao.convertNoteEntityToJson(localNote),
-                            remoteSnapshot = noteDao.convertNoteEntityToJson(remoteNote),
+                            localSnapshot = noteDao.convertNoteEntityToJson(localNote.toDomain()),
+                            remoteSnapshot = noteDao.convertNoteEntityToJson(remoteNote.toDomain()),
                             localVersion = localNote.localVersion,
                             remoteVersion = remoteNote.remoteVersion,
                             expectedVersion = remoteNote.remoteVersion,
@@ -105,25 +113,26 @@ class SyncProcessor @Inject constructor(
                 }
             } else {
                 // Local note doesn't exist, handle new remote notes.
-                if (!remoteNote.deleted) {
-                    noteDao.upsert(remoteNote.copy(syncStatus = SyncStatus.SYNCED))
+                if (!remoteNoteDto.deleted) {
+                    noteDao.upsert(remoteNoteDto.toEntity(SyncStatus.SYNCED))
                 }
             }
         }
     }
 
-    suspend fun syncRemoteGridElement(remoteElement: GridElementEntity) {
+    suspend fun syncRemoteGridElement(remoteElementDto: GridElementDto) {
         withContext(ioDispatcher) {
-            val localElement = gridElementDao.getById(remoteElement.id)
+            val localElement = gridElementDao.getById(remoteElementDto.id)
 
             if (localElement != null) {
-                val isDeleted = remoteElement.deleted
+                val isDeleted = remoteElementDto.deleted
                 if (isDeleted) {
-                    gridElementDao.deleteById(remoteElement.id)
+                    gridElementDao.deleteById(remoteElementDto.id)
                     return@withContext
                 }
                 // LAST WRITE WINS but ignore stale (Section 6.5)
-                if (remoteElement.remoteVersion > localElement.remoteVersion) {
+                if (remoteElementDto.remoteVersion > localElement.remoteVersion) {
+                    val remoteElement = remoteElementDto.toEntity(SyncStatus.SYNCED)
                     if (remoteElement.deleted) {
                         gridElementDao.deleteById(remoteElement.id)
                     } else {
@@ -136,34 +145,33 @@ class SyncProcessor @Inject constructor(
                 }
             } else {
                 // Local element doesn't exist, handle new remote elements.
-                if (!remoteElement.deleted) {
-                    gridElementDao.upsert(remoteElement.copy(syncStatus = SyncStatus.SYNCED))
+                if (!remoteElementDto.deleted) {
+                    gridElementDao.upsert(remoteElementDto.toEntity(SyncStatus.SYNCED))
                 }
             }
         }
     }
 
-    suspend fun syncRemoteNoteImage(remoteImage: NoteImageEntity, noteId: String) {
+    suspend fun syncRemoteNoteImage(remoteImageDto: NoteImageDto) {
         withContext(ioDispatcher) {
-            val localImage = noteImageDao.getById(remoteImage.id)
+            val localImage = noteImageDao.getById(remoteImageDto.id)
 
             if (localImage != null) {
                 // LAST WRITE WINS but ignore stale (Section 6.5)
-                if (remoteImage.remoteVersion > localImage.remoteVersion) {
-                    if (remoteImage.deleted) {
-                        noteImageDao.deleteById(remoteImage.id)
+                if (remoteImageDto.remoteVersion > localImage.remoteVersion) {
+                    if (remoteImageDto.deleted) {
+                        noteImageDao.deleteById(remoteImageDto.id)
                     } else {
-                        val updatedLocalImage = remoteImage.copy(
-                            localVersion = localImage.localVersion,
-                            syncStatus = localImage.syncStatus
+                        val updatedLocalImage = remoteImageDto.toEntity(
+                            syncStatus = localImage.syncStatus // Keep local sync status
                         )
                         noteImageDao.upsert(updatedLocalImage)
                     }
                 }
             } else {
                 // Local image doesn't exist, handle new remote images.
-                if (!remoteImage.deleted) {
-                    noteImageDao.upsert(remoteImage.copy(syncStatus = SyncStatus.SYNCED))
+                if (!remoteImageDto.deleted) {
+                    noteImageDao.upsert(remoteImageDto.toEntity(SyncStatus.SYNCED))
                 }
             }
         }

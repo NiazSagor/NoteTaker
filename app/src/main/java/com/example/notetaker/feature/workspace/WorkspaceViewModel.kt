@@ -3,9 +3,8 @@ package com.example.notetaker.feature.workspace
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.notetaker.core.data.db.entity.GridElementEntity
-import com.example.notetaker.core.data.db.entity.GridElementWithContent
 import com.example.notetaker.core.domain.base.Result
+import com.example.notetaker.core.domain.model.GridElementWithContent
 import com.example.notetaker.core.domain.usecase.auth.ObserveUserIdUseCase
 import com.example.notetaker.core.domain.usecase.auth.SignInAnonymouslyUseCase
 import com.example.notetaker.core.domain.usecase.note.CreateNoteParams

@@ -1,5 +1,6 @@
 package com.example.notetaker.core.domain.usecase.workspace
 
+import com.example.notetaker.core.data.db.dao.GridElementDao
 import com.example.notetaker.core.domain.base.UseCase
 import com.example.notetaker.core.domain.di.IoDispatcher
 import com.example.notetaker.core.domain.model.SyncStatus
@@ -13,11 +14,12 @@ data class ReorderParams(
 )
 
 class ReorderGridElementUseCase @Inject constructor(
+    private val gridElementDao: GridElementDao,
     private val repository: GridElementRepository,
     @IoDispatcher dispatcher: CoroutineDispatcher
 ) : UseCase<ReorderParams, Unit>(dispatcher) {
     override suspend fun execute(parameters: ReorderParams) {
-        val element = repository.getGridElement(parameters.elementId) ?: return
+        val element = gridElementDao.getById(parameters.elementId) ?: return
         val updatedElement = element.copy(
             orderIndex = parameters.newOrderIndex,
             syncStatus = SyncStatus.PENDING,

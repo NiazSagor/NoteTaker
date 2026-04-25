@@ -22,7 +22,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
-import com.example.notetaker.core.data.db.entity.NoteImageEntity
+import com.example.notetaker.core.domain.model.Note
+import com.example.notetaker.core.domain.model.NoteImage
 
 private const val TAG = "NoteEditorScreen"
 @OptIn(ExperimentalMaterial3Api::class)
@@ -119,8 +120,8 @@ fun NoteEditorScreen(
 
 @Composable
 fun NoteImageGallery(
-    images: List<NoteImageEntity>,
-    onImageClick: (NoteImageEntity) -> Unit
+    images: List<NoteImage>,
+    onImageClick: (NoteImage) -> Unit
 ) {
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
