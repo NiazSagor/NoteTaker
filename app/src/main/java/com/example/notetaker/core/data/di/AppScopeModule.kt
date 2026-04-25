@@ -15,7 +15,6 @@ object AppScopeModule {
     @Provides
     @Singleton
     fun providesAppCoroutineScope(): CoroutineScope {
-        // This scope will live as long as the application
-        return CoroutineScope(Dispatchers.Default) // Use Dispatchers.Default or other appropriate dispatcher
+        return CoroutineScope(Dispatchers.Default)
     }
 }

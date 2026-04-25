@@ -66,7 +66,6 @@ class AppTypeConverters {
     @TypeConverter
     fun toNoteImageEntityJson(image: NoteImageEntity): String = Json.encodeToString(image)
 }
-
 @Database(
     entities = [
         WorkspaceEntity::class,

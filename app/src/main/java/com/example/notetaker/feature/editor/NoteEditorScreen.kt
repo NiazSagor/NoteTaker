@@ -3,6 +3,8 @@ package com.example.notetaker.feature.editor
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -17,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -33,6 +36,7 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -49,23 +53,26 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
@@ -105,9 +112,6 @@ fun NoteEditorScreen(
                     // Conditionally show conflict indicator icon if conflictDetails is not null
                     if (uiState.hasConflict == true) {
                         IconButton(onClick = {
-                            // TODO: Trigger ViewModel event to show the conflict resolution dialog/sheet.
-                            // This event might look like: viewModel.onEvent(NoteEditorEvent.OnShowConflictDialog(conflict.id))
-                            // You'll need to define this event and its handler in the ViewModel and Screen.
                             showSheet = true
                         }) {
                             Icon(
@@ -153,7 +157,7 @@ fun NoteEditorScreen(
                     images = uiState.images,
                     onImageClick = { viewModel.onEvent(NoteEditorEvent.OnImageSelected(it.id)) },
                     onPointerEvent = { imageId, bounds, event, currentRotation ->
-                        viewModel.onImagePointerEvent(
+                        viewModel.handlePointerEvent(
                             imageId, bounds, event, currentRotation
                         )
                     }
@@ -210,7 +214,7 @@ fun NoteImageGallery(
     touchState: ImageTouchState,
     images: List<NoteImage>,
     onImageClick: (NoteImage) -> Unit,
-    onPointerEvent: (String, Rect, PointerEvent, Float) -> Unit
+    onPointerEvent: (String, Rect, List<PointerInputChange>, Float) -> Unit
 ) {
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -234,7 +238,7 @@ fun NoteImageGallery(
 fun NoteImage(
     image: NoteImage,
     touchState: ImageTouchState,
-    onPointerEvent: (imageId: String, bounds: Rect, event: PointerEvent, currentRotation: Float) -> Unit
+    onPointerEvent: (imageId: String, bounds: Rect, events: List<PointerInputChange>, currentRotation: Float) -> Unit
 ) {
     var imageBounds by remember { mutableStateOf(Rect.Zero) }
 
@@ -272,12 +276,18 @@ fun NoteImage(
                     while (true) {
                         // Collect EVERY pointer event — press, move, release
                         val event = awaitPointerEvent(PointerEventPass.Main)
+                        val activePointers = event.changes
+                            .filter { it.pressed }
                         onPointerEvent(
                             image.id,
                             imageBounds,
-                            event,
+                            activePointers,
                             image.rotationDegrees
                         )
+
+                        if (activePointers.size >= 2) {
+                            event.changes.forEach { it.consume() }
+                        }
                     }
                 }
             }
@@ -291,64 +301,105 @@ fun NoteImage(
         // HUD — only visible during ROTATING state for this image
         if (isRotating) {
             RotationHud(
-                degrees = (touchState as ImageTouchState.Rotating).currentDegrees
+                degrees = (touchState as ImageTouchState.Rotating).currentDegrees,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .zIndex(10f)
             )
         }
     }
 }
 
 @Composable
-fun RotationHud(degrees: Float) {
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        val center = Offset(size.width / 2f, size.height / 2f)
-        val radius = minOf(size.width, size.height) / 2f - 16.dp.toPx()
+fun RotationHud(
+    degrees: Float,
+    modifier: Modifier = Modifier
+) {
+    // Animate opacity on appear and disappear
+    val alpha by animateFloatAsState(
+        targetValue = 1f,
+        animationSpec = tween(durationMillis = 150),
+        label = "hud_alpha"
+    )
 
-        // Draw the arc from 0 to current rotation
-        drawArc(
-            color = Color.White.copy(alpha = 0.85f),
-            startAngle = -90f,               // start from top
-            sweepAngle = degrees % 360f,     // sweep to current rotation
-            useCenter = false,
-            topLeft = Offset(
-                center.x - radius,
-                center.y - radius
-            ),
-            size = Size(radius * 2, radius * 2),
-            style = Stroke(
-                width = 3.dp.toPx(),
+    Box(
+        modifier = modifier
+            .size(140.dp)           // Fixed size — not tied to image size
+            .alpha(alpha),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val center = Offset(size.width / 2f, size.height / 2f)
+            val radius = size.minDimension / 2f - 8.dp.toPx()
+
+            // ── Dark semi-transparent background circle ──────
+            // Provides contrast against any image content
+            drawCircle(
+                color = Color.Black.copy(alpha = 0.55f),
+                radius = radius + 8.dp.toPx(),
+                center = center
+            )
+
+            // ── Full circle track (dim) ───────────────────────
+            drawArc(
+                color = Color.White.copy(alpha = 0.25f),
+                startAngle = 0f,
+                sweepAngle = 360f,
+                useCenter = false,
+                topLeft = Offset(center.x - radius, center.y - radius),
+                size = Size(radius * 2, radius * 2),
+                style = Stroke(width = 2.dp.toPx())
+            )
+
+            // ── Active arc (bright) ───────────────────────────
+            val normalizedDegrees = degrees % 360f
+            drawArc(
+                color = Color(0xFF4FC3F7),    // light blue — visible on any bg
+                startAngle = -90f,
+                sweepAngle = normalizedDegrees,
+                useCenter = false,
+                topLeft = Offset(center.x - radius, center.y - radius),
+                size = Size(radius * 2, radius * 2),
+                style = Stroke(
+                    width = 4.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+            )
+
+            // ── Direction line ────────────────────────────────
+            val angleRad = Math.toRadians((degrees - 90.0))
+            val lineEnd = Offset(
+                center.x + (radius * cos(angleRad)).toFloat(),
+                center.y + (radius * sin(angleRad)).toFloat()
+            )
+            drawLine(
+                color = Color(0xFF4FC3F7),
+                start = center,
+                end = lineEnd,
+                strokeWidth = 3.dp.toPx(),
                 cap = StrokeCap.Round
             )
-        )
 
-        // Draw degree text in center
-        drawContext.canvas.nativeCanvas.apply {
-            val paint = android.graphics.Paint().apply {
-                color = android.graphics.Color.WHITE
-                textSize = 28.sp.toPx()
-                textAlign = android.graphics.Paint.Align.CENTER
-                isFakeBoldText = true
-                setShadowLayer(4f, 0f, 0f, android.graphics.Color.BLACK)
-            }
-            drawText(
-                "${degrees.roundToInt()}°",
-                center.x,
-                center.y + (paint.textSize / 3),   // vertically center text
-                paint
+            // ── Center dot ────────────────────────────────────
+            drawCircle(
+                color = Color(0xFF4FC3F7),
+                radius = 4.dp.toPx(),
+                center = center
             )
         }
 
-        // Draw a small direction indicator line
-        val angleRad = Math.toRadians((degrees - 90.0))
-        val lineEnd = Offset(
-            center.x + (radius * cos(angleRad)).toFloat(),
-            center.y + (radius * sin(angleRad)).toFloat()
-        )
-        drawLine(
-            color = Color.White.copy(alpha = 0.85f),
-            start = center,
-            end = lineEnd,
-            strokeWidth = 2.dp.toPx(),
-            cap = StrokeCap.Round
+        // ── Degree text ───────────────────────────────────────
+        Text(
+            text = "${degrees.roundToInt()}°",
+            color = Color.White,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            style = LocalTextStyle.current.copy(
+                shadow = Shadow(
+                    color = Color.Black,
+                    blurRadius = 6f
+                )
+            )
         )
     }
 }
