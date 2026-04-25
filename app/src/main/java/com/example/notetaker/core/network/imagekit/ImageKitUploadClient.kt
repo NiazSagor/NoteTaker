@@ -2,6 +2,7 @@ package com.example.notetaker.core.network.imagekit
 
 import android.content.Context
 import android.net.Uri
+import com.example.notetaker.BuildConfig
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -23,7 +24,7 @@ class ImageKitUploadClient @Inject constructor(
     private val okHttpClient: OkHttpClient,
 ) {
     // TODO: move to secrets
-    private val privateKey = "private_YKm5h9m7O1gt4liBc3vx+qQh6tU="
+    private val privateKey = BuildConfig.IMAGEKIT_PRIVATE_KEY
 
     suspend fun uploadImage(uriString: String, fileName: String): String =
         withContext(Dispatchers.IO) {

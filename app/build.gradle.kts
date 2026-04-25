@@ -23,6 +23,12 @@ android {
         ksp {
             arg("room.schemaLocation", "$projectDir/schemas")
         }
+
+        buildConfigField(
+            "String",
+            "IMAGEKIT_PRIVATE_KEY",
+            "\"${project.findProperty("IMAGEKIT_PRIVATE_KEY")}\""
+        )
     }
 
     buildTypes {
