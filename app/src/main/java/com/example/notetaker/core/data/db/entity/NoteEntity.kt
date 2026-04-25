@@ -4,6 +4,9 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.example.notetaker.core.domain.model.SyncStatus
 
+import com.example.notetaker.core.domain.model.Note
+import com.example.notetaker.core.network.firebase.model.NoteDto
+
 @Entity(tableName = "notes")
 data class NoteEntity(
     @PrimaryKey val id: String = "",                // UUID â€” same as GridElementEntity.noteId
@@ -31,6 +34,37 @@ data class NoteEntity(
     val lastSyncError: String? = null,
     val editCount: Int = 0                     // DEBUG: how many times edited locally
 ) {
+    fun toDomain(): Note {
+        return Note(
+            id = id,
+            workspaceId = workspaceId,
+            title = title,
+            content = content,
+            createdAt = createdAt,
+            updatedAt = updatedAt,
+            createdBy = createdBy,
+            lastEditedBy = lastEditedBy,
+            remoteVersion = remoteVersion,
+            syncStatus = syncStatus,
+            deleted = deleted
+        )
+    }
+
+    fun toDto(): NoteDto {
+        return NoteDto(
+            id = id,
+            workspaceId = workspaceId,
+            title = title,
+            content = content,
+            createdAt = createdAt,
+            updatedAt = updatedAt,
+            createdBy = createdBy,
+            lastEditedBy = lastEditedBy,
+            remoteVersion = remoteVersion,
+            deleted = deleted
+        )
+    }
+
     fun toFirestoreMap(): Map<String, Any?> {
         return mapOf(
             "id" to id,

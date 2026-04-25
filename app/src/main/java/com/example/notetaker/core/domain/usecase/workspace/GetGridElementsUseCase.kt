@@ -1,7 +1,6 @@
 package com.example.notetaker.core.domain.usecase.workspace
 
-import com.example.notetaker.core.data.db.entity.GridElementEntity
-import com.example.notetaker.core.data.db.entity.GridElementWithContent
+import com.example.notetaker.core.domain.model.GridElementWithContent
 import com.example.notetaker.core.domain.base.ObservableUseCase
 import com.example.notetaker.core.domain.di.IoDispatcher
 import com.example.notetaker.core.domain.repository.GridElementRepository

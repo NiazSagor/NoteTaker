@@ -34,7 +34,7 @@ class SyncNoteWorker @AssistedInject constructor(
 
         return try {
             val noteToPush = note.copy(remoteVersion = note.remoteVersion + 1)
-            firestore.upsertNote(workspaceId, noteToPush)
+            firestore.upsertNote(workspaceId, noteToPush.toDto())
             noteDao.upsert(noteToPush.copy(syncStatus = SyncStatus.SYNCED, localVersion = 0))
             Result.success()
         } catch (e: Exception) {

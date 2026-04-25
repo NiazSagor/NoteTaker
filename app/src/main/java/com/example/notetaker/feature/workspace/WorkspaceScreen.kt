@@ -26,7 +26,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import coil3.compose.AsyncImage
-import com.example.notetaker.core.data.db.entity.GridElementWithContent
+import com.example.notetaker.core.domain.model.GridElement
+import com.example.notetaker.core.domain.model.GridElementWithContent
 import com.example.notetaker.core.domain.model.GridElementType
 
 @OptIn(ExperimentalMaterial3Api::class)

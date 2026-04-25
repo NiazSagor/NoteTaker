@@ -4,6 +4,8 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.example.notetaker.core.domain.model.SyncStatus
 import com.example.notetaker.core.domain.model.UploadStatus
+import com.example.notetaker.core.domain.model.NoteImage
+import com.example.notetaker.core.network.firebase.model.NoteImageDto
 
 @Entity(tableName = "note_images")
 data class NoteImageEntity(
@@ -29,19 +31,38 @@ data class NoteImageEntity(
     val lastSyncError: String? = null,
     val rotationHistory: String? = null        // DEBUG: JSON array of last 5 rotation values
 ) {
-    fun toFirestoreMap(): Map<String, Any?> {
-        return mapOf(
-            "id" to id,
-            "noteId" to noteId,
-            "workspaceId" to workspaceId,
-            "orderInNote" to orderInNote,
-            "remoteImageUrl" to remoteImageUrl,
-            "rotationDegrees" to rotationDegrees,
-            "createdAt" to createdAt,
-            "updatedAt" to updatedAt,
-            "createdBy" to createdBy,
-            "remoteVersion" to remoteVersion,
-            "deleted" to deleted
+    fun toDomain(): NoteImage {
+        return NoteImage(
+            id = id,
+            noteId = noteId,
+            workspaceId = workspaceId,
+            orderInNote = orderInNote,
+            localImageUri = localImageUri,
+            remoteImageUrl = remoteImageUrl,
+            rotationDegrees = rotationDegrees,
+            uploadStatus = uploadStatus,
+            createdAt = createdAt,
+            updatedAt = updatedAt,
+            createdBy = createdBy,
+            syncStatus = syncStatus,
+            remoteVersion = remoteVersion,
+            deleted = deleted
+        )
+    }
+
+    fun toDto(): NoteImageDto {
+        return NoteImageDto(
+            id = id,
+            noteId = noteId,
+            workspaceId = workspaceId,
+            orderInNote = orderInNote,
+            remoteImageUrl = remoteImageUrl,
+            rotationDegrees = rotationDegrees,
+            createdAt = createdAt,
+            updatedAt = updatedAt,
+            createdBy = createdBy,
+            remoteVersion = remoteVersion,
+            deleted = deleted
         )
     }
 }

@@ -7,16 +7,13 @@ import com.example.notetaker.core.data.db.entity.NoteEntity
 import com.example.notetaker.core.data.sync.SyncManager
 import com.example.notetaker.core.data.sync.SyncProcessor
 import com.example.notetaker.core.domain.di.IoDispatcher
+import com.example.notetaker.core.domain.model.Note
 import com.example.notetaker.core.domain.repository.AuthRepository
 import com.example.notetaker.core.domain.repository.NoteRepository
 import com.example.notetaker.core.network.firebase.FirestoreSource
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -41,12 +38,12 @@ class NoteRepositoryImpl @Inject constructor(
         observeRemoteNotes()
     }
 
-    override fun observeNote(id: String): Flow<NoteEntity?> {
-        return noteDao.observeNote(id)
+    override fun observeNote(id: String): Flow<Note?> {
+        return noteDao.observeNote(id).map { it?.toDomain() }
     }
 
-    override suspend fun getNote(id: String): NoteEntity? = withContext(ioDispatcher) {
-        noteDao.getNote(id)
+    override suspend fun getNote(id: String): Note? = withContext(ioDispatcher) {
+        noteDao.getNote(id)?.toDomain()
     }
 
     override suspend fun saveNote(note: NoteEntity) {

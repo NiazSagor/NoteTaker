@@ -7,15 +7,12 @@ import com.example.notetaker.core.data.db.entity.NoteImageEntity
 import com.example.notetaker.core.data.sync.SyncManager
 import com.example.notetaker.core.data.sync.SyncProcessor
 import com.example.notetaker.core.domain.di.IoDispatcher
+import com.example.notetaker.core.domain.model.NoteImage
 import com.example.notetaker.core.domain.repository.NoteImageRepository
 import com.example.notetaker.core.network.firebase.FirestoreSource
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -35,15 +32,16 @@ class NoteImageRepositoryImpl @Inject constructor(
     private val workspaceId = "global_workspace" // Assuming a single global workspace
     private val TAG = "NoteImageRepoImpl"
 
-    override fun observeNoteImages(noteId: String): Flow<List<NoteImageEntity>> {
+    override fun observeNoteImages(noteId: String): Flow<List<NoteImage>> {
         // Trigger remote observation when a note is observed
         observeRemoteNoteImages(noteId)
         // Observes local Room data. Remote changes are synced to Room.
         return noteImageDao.observeNoteImages(noteId)
+            .map { list -> list.map { it.toDomain() } }
     }
 
-    override suspend fun getNoteImage(id: String): NoteImageEntity? = withContext(ioDispatcher) {
-        noteImageDao.getById(id)
+    override suspend fun getNoteImage(id: String): NoteImage? = withContext(ioDispatcher) {
+        noteImageDao.getById(id)?.toDomain()
     }
 
     override suspend fun saveNoteImage(image: NoteImageEntity) {
@@ -80,7 +78,7 @@ class NoteImageRepositoryImpl @Inject constructor(
                 .flowOn(ioDispatcher)
                 .onEach { remoteImages ->
                     remoteImages.forEach { remoteImage ->
-                        syncProcessor.syncRemoteNoteImage(remoteImage, noteId)
+                        syncProcessor.syncRemoteNoteImage(remoteImage)
                     }
                 }
                 .catch { e ->

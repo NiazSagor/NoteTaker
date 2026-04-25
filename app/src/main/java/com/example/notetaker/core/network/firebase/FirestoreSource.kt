@@ -4,6 +4,9 @@ import android.util.Log
 import com.example.notetaker.core.data.db.entity.GridElementEntity
 import com.example.notetaker.core.data.db.entity.NoteEntity
 import com.example.notetaker.core.data.db.entity.NoteImageEntity
+import com.example.notetaker.core.network.firebase.model.GridElementDto
+import com.example.notetaker.core.network.firebase.model.NoteDto
+import com.example.notetaker.core.network.firebase.model.NoteImageDto
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.channels.awaitClose
@@ -19,7 +22,7 @@ class FirestoreSource @Inject constructor(
 ) {
     private val TAG = "FirestoreSource"
     // --- Note Firestore Operations ---
-    fun observeNotes(workspaceId: String): Flow<List<NoteEntity>> = callbackFlow {
+    fun observeNotes(workspaceId: String): Flow<List<NoteDto>> = callbackFlow {
         val listener = firestore.collection("workspaces")
             .document(workspaceId)
             .collection("notes")
@@ -31,9 +34,8 @@ class FirestoreSource @Inject constructor(
                 }
                 if (snapshot?.metadata?.hasPendingWrites() == true) return@addSnapshotListener
                 if (snapshot != null) {
-                    // Firestore's toObjects can directly map to Room entities if field names match exactly.
-                    // We assume NoteEntity fields match Firestore document fields for simplicity.
-                    val notes = snapshot.toObjects(NoteEntity::class.java)
+                    // Map to DTOs directly from Firestore
+                    val notes = snapshot.toObjects(NoteDto::class.java)
                     Log.e(TAG, "observeNotes: notes $notes", )
                     trySend(notes)
                 }
@@ -41,17 +43,17 @@ class FirestoreSource @Inject constructor(
         awaitClose { listener.remove() }
     }
 
-    suspend fun upsertNote(workspaceId: String, note: NoteEntity) {
+    suspend fun upsertNote(workspaceId: String, noteDto: NoteDto) {
         firestore.collection("workspaces")
             .document(workspaceId)
             .collection("notes")
-            .document(note.id)
-            .set(note.toFirestoreMap())
+            .document(noteDto.id)
+            .set(noteDto) // Set the DTO directly
             .await()
     }
 
     // --- GridElement Firestore Operations ---
-    fun observeGridElements(workspaceId: String): Flow<List<GridElementEntity>> = callbackFlow {
+    fun observeGridElements(workspaceId: String): Flow<List<GridElementDto>> = callbackFlow {
         val listener = firestore.collection("workspaces")
             .document(workspaceId)
             .collection("gridElements")
@@ -63,25 +65,25 @@ class FirestoreSource @Inject constructor(
                 }
                 if (snapshot?.metadata?.hasPendingWrites() == true) return@addSnapshotListener
                 if (snapshot != null) {
-                    val elements = snapshot.toObjects(GridElementEntity::class.java)
+                    val elements = snapshot.toObjects(GridElementDto::class.java)
                     trySend(elements)
                 }
             }
         awaitClose { listener.remove() }
     }
 
-    suspend fun upsertGridElement(workspaceId: String, element: GridElementEntity) {
+    suspend fun upsertGridElement(workspaceId: String, elementDto: GridElementDto) {
         // Similar to notes, filter out local-only fields if any.
         firestore.collection("workspaces")
             .document(workspaceId)
             .collection("gridElements")
-            .document(element.id)
-            .set(element.toFirestoreMap())
+            .document(elementDto.id)
+            .set(elementDto) // Set the DTO directly
             .await()
     }
 
     // --- NoteImage Firestore Operations ---
-    fun observeNoteImages(workspaceId: String, noteId: String): Flow<List<NoteImageEntity>> =
+    fun observeNoteImages(workspaceId: String, noteId: String): Flow<List<NoteImageDto>> =
         callbackFlow {
             val listener = firestore.collection("workspaces")
                 .document(workspaceId)
@@ -96,22 +98,22 @@ class FirestoreSource @Inject constructor(
                     }
                     if (snapshot?.metadata?.hasPendingWrites() == true) return@addSnapshotListener
                     if (snapshot != null) {
-                        val images = snapshot.toObjects(NoteImageEntity::class.java)
+                        val images = snapshot.toObjects(NoteImageDto::class.java)
                         trySend(images)
                     }
                 }
             awaitClose { listener.remove() }
         }
 
-    suspend fun upsertNoteImage(workspaceId: String, noteId: String, image: NoteImageEntity) {
+    suspend fun upsertNoteImage(workspaceId: String, noteId: String, imageDto: NoteImageDto) {
         // Filter out local-only fields if any.
         firestore.collection("workspaces")
             .document(workspaceId)
             .collection("notes")
             .document(noteId)
             .collection("noteImages")
-            .document(image.id)
-            .set(image.toFirestoreMap())
+            .document(imageDto.id)
+            .set(imageDto) // Set the DTO directly
             .await()
     }
 
