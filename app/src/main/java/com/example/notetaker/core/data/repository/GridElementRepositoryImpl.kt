@@ -5,9 +5,9 @@ import com.example.notetaker.core.data.db.dao.ConflictDao
 import com.example.notetaker.core.data.db.dao.GridElementDao
 import com.example.notetaker.core.data.db.entity.GridElementEntity
 import com.example.notetaker.core.data.db.entity.GridElementWithContent
+import com.example.notetaker.core.data.sync.SyncManager
 import com.example.notetaker.core.data.sync.SyncProcessor
 import com.example.notetaker.core.domain.di.IoDispatcher
-import com.example.notetaker.core.domain.model.SyncStatus
 import com.example.notetaker.core.domain.repository.GridElementRepository
 import com.example.notetaker.core.network.firebase.FirestoreSource
 import kotlinx.coroutines.CoroutineDispatcher
@@ -28,6 +28,7 @@ class GridElementRepositoryImpl @Inject constructor(
     private val conflictDao: ConflictDao,
     private val firestoreSource: FirestoreSource,
     private val syncProcessor: SyncProcessor,
+    private val syncManager: SyncManager,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     private val appScope: CoroutineScope // Inject application-scoped CoroutineScope
 ) : GridElementRepository {
@@ -52,44 +53,14 @@ class GridElementRepositoryImpl @Inject constructor(
         withContext(ioDispatcher) {
             // Local save first
             gridElementDao.upsert(element)
-
-            // Immediate remote attempt
-            try {
-                // TODO:  syncStatus appears = PENDING in firestore
-                val elementToPush = element.copy(remoteVersion = element.remoteVersion + 1)
-                firestoreSource.upsertGridElement(workspaceId, elementToPush)
-                gridElementDao.upsert(
-                    elementToPush.copy(
-                        syncStatus = SyncStatus.SYNCED,
-                        localVersion = 0
-                    )
-                )
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed immediate sync for grid element ${element.id}", e)
-            }
+            syncManager.syncGridElement(element.id)
         }
     }
 
     override suspend fun softDeleteGridElement(id: String) {
         withContext(ioDispatcher) {
             gridElementDao.softDelete(id)
-
-            // Immediate remote attempt
-            try {
-                val element = gridElementDao.getById(id)
-                if (element != null) {
-                    val elementToPush = element.copy(remoteVersion = element.remoteVersion + 1)
-                    firestoreSource.upsertGridElement(workspaceId, elementToPush)
-                    gridElementDao.upsert(
-                        elementToPush.copy(
-                            syncStatus = SyncStatus.SYNCED,
-                            localVersion = 0
-                        )
-                    )
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed immediate sync for soft delete of grid element $id", e)
-            }
+            syncManager.syncGridElement(id)
         }
     }
 
@@ -99,7 +70,7 @@ class GridElementRepositoryImpl @Inject constructor(
                 .flowOn(ioDispatcher)
                 .onEach { remoteElements ->
                     remoteElements.forEach { remoteElement ->
-                        Log.e(TAG, "observeRemoteGridElements: $remoteElement", )
+                        Log.e(TAG, "observeRemoteGridElements: $remoteElement")
                         syncProcessor.syncRemoteGridElement(remoteElement)
                     }
                 }

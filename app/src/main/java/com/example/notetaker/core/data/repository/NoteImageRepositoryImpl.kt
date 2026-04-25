@@ -4,9 +4,9 @@ import android.util.Log
 import com.example.notetaker.core.data.db.dao.ConflictDao
 import com.example.notetaker.core.data.db.dao.NoteImageDao
 import com.example.notetaker.core.data.db.entity.NoteImageEntity
+import com.example.notetaker.core.data.sync.SyncManager
 import com.example.notetaker.core.data.sync.SyncProcessor
 import com.example.notetaker.core.domain.di.IoDispatcher
-import com.example.notetaker.core.domain.model.SyncStatus
 import com.example.notetaker.core.domain.repository.NoteImageRepository
 import com.example.notetaker.core.network.firebase.FirestoreSource
 import kotlinx.coroutines.CoroutineDispatcher
@@ -27,6 +27,7 @@ class NoteImageRepositoryImpl @Inject constructor(
     private val conflictDao: ConflictDao,
     private val firestoreSource: FirestoreSource,
     private val syncProcessor: SyncProcessor,
+    private val syncManager: SyncManager,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     private val appScope: CoroutineScope
 ) : NoteImageRepository {
@@ -49,15 +50,7 @@ class NoteImageRepositoryImpl @Inject constructor(
         withContext(ioDispatcher) {
             // Local save first (optimistic update)
             noteImageDao.upsert(image)
-
-            // Immediate remote attempt
-            try {
-                val imageToPush = image.copy(remoteVersion = image.remoteVersion + 1)
-                firestoreSource.upsertNoteImage(workspaceId, image.noteId, imageToPush)
-                noteImageDao.upsert(imageToPush.copy(syncStatus = SyncStatus.SYNCED, localVersion = 0))
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed immediate sync for note image ${image.id}", e)
-            }
+            syncManager.syncNoteImage(image.id)
             // TODO: we need to update the remote image url after image upload 
         }
     }
@@ -67,15 +60,9 @@ class NoteImageRepositoryImpl @Inject constructor(
             // Local save first
             noteImageDao.upsertAll(images)
 
-            // Immediate remote attempt for each
+            // Sync each image via WorkManager
             images.forEach { image ->
-                try {
-                    val imageToPush = image.copy(remoteVersion = image.remoteVersion + 1)
-                    firestoreSource.upsertNoteImage(workspaceId, image.noteId, imageToPush)
-                    noteImageDao.upsert(imageToPush.copy(syncStatus = SyncStatus.SYNCED, localVersion = 0))
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed immediate sync for note image ${image.id} in batch", e)
-                }
+                syncManager.syncNoteImage(image.id)
             }
         }
     }
@@ -83,18 +70,7 @@ class NoteImageRepositoryImpl @Inject constructor(
     override suspend fun softDeleteNoteImage(id: String) {
         withContext(ioDispatcher) {
             noteImageDao.softDelete(id)
-
-            // Immediate remote attempt
-            try {
-                val image = noteImageDao.getById(id)
-                if (image != null) {
-                    val imageToPush = image.copy(remoteVersion = image.remoteVersion + 1)
-                    firestoreSource.upsertNoteImage(workspaceId, image.noteId, imageToPush)
-                    noteImageDao.upsert(imageToPush.copy(syncStatus = SyncStatus.SYNCED, localVersion = 0))
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed immediate sync for soft delete of note image $id", e)
-            }
+            syncManager.syncNoteImage(id)
         }
     }
 

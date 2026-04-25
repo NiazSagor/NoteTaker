@@ -12,4 +12,12 @@ class SyncManager @Inject constructor(
     fun syncNote(noteId: String) {
         SyncNoteWorker.enqueue(context, noteId)
     }
+
+    fun syncGridElement(elementId: String) {
+        SyncGridElementWorker.enqueue(context, elementId)
+    }
+
+    fun syncNoteImage(imageId: String) {
+        SyncNoteImageWorker.enqueue(context, imageId)
+    }
 }

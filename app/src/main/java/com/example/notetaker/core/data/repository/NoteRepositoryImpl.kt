@@ -7,7 +7,6 @@ import com.example.notetaker.core.data.db.entity.NoteEntity
 import com.example.notetaker.core.data.sync.SyncManager
 import com.example.notetaker.core.data.sync.SyncProcessor
 import com.example.notetaker.core.domain.di.IoDispatcher
-import com.example.notetaker.core.domain.model.SyncStatus
 import com.example.notetaker.core.domain.repository.AuthRepository
 import com.example.notetaker.core.domain.repository.NoteRepository
 import com.example.notetaker.core.network.firebase.FirestoreSource
@@ -60,23 +59,7 @@ class NoteRepositoryImpl @Inject constructor(
     override suspend fun softDeleteNote(id: String) {
         withContext(ioDispatcher) {
             noteDao.softDelete(id)
-            // TODO: use work manager 
-            // Immediate remote attempt for soft delete (tombstone)
-            try {
-                val note = noteDao.getNote(id)
-                if (note != null) {
-                    val noteToPush = note.copy(remoteVersion = note.remoteVersion + 1)
-                    firestoreSource.upsertNote(workspaceId, noteToPush)
-                    noteDao.upsert(
-                        noteToPush.copy(
-                            syncStatus = SyncStatus.SYNCED,
-                            localVersion = 0
-                        )
-                    )
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed immediate sync for soft delete of note $id", e)
-            }
+            syncManager.syncNote(id)
         }
     }
 
