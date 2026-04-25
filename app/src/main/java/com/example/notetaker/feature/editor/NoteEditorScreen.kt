@@ -105,9 +105,6 @@ fun NoteEditorScreen(
                     // Conditionally show conflict indicator icon if conflictDetails is not null
                     if (uiState.hasConflict == true) {
                         IconButton(onClick = {
-                            // TODO: Trigger ViewModel event to show the conflict resolution dialog/sheet.
-                            // This event might look like: viewModel.onEvent(NoteEditorEvent.OnShowConflictDialog(conflict.id))
-                            // You'll need to define this event and its handler in the ViewModel and Screen.
                             showSheet = true
                         }) {
                             Icon(

@@ -25,5 +25,4 @@ object NetworkModule {
     @Singleton
     fun provideFirebaseFirestore(): FirebaseFirestore = FirebaseFirestore.getInstance()
 
-    // Cloudinary setup would go here if initialized via MediaManager
 }
