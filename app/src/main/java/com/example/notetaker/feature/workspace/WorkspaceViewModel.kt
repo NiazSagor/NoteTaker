@@ -1,5 +1,7 @@
 package com.example.notetaker.feature.workspace
 
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -15,6 +17,7 @@ import com.example.notetaker.core.domain.usecase.workspace.ReorderParams
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.util.Collections
 import javax.inject.Inject
 
 data class WorkspaceUiState(
@@ -44,6 +47,9 @@ class WorkspaceViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(WorkspaceUiState())
     val uiState: StateFlow<WorkspaceUiState> = _uiState.asStateFlow()
+
+    private val itemBounds = mutableMapOf<String, Rect>()
+    private var lastHoveredId: String? = null
 
     private val _navigateToNoteEditor = MutableSharedFlow<String>()
     val navigateToNoteEditor: SharedFlow<String> = _navigateToNoteEditor
@@ -91,11 +97,57 @@ class WorkspaceViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
 
+    fun updateItemBounds(id: String, rect: Rect) {
+        itemBounds[id] = rect
+    }
+
     fun onEvent(event: WorkspaceEvent) {
         when (event) {
             is WorkspaceEvent.OnCreateNote -> createNote()
             is WorkspaceEvent.OnReorder -> reorder(event.elementId, event.newOrderIndex)
             is WorkspaceEvent.OnAddImage -> { /* TODO */ }
+        }
+    }
+
+    fun getItemBounds(id: String): Rect? = itemBounds[id]
+
+    fun onDragMove(draggedId: String, fingerPosition: Offset) {
+        val hoveredId = itemBounds.entries
+            .firstOrNull { (id, rect) ->
+                id != draggedId && rect.contains(fingerPosition)
+            }?.key
+
+        if (hoveredId != null && hoveredId != lastHoveredId) {
+            lastHoveredId = hoveredId
+            swapGridElements(draggedId, hoveredId)
+        }
+    }
+
+    private fun swapGridElements(fromId: String, toId: String) {
+        val currentList = _uiState.value.gridElements.toMutableList()
+        val fromIndex = currentList.indexOfFirst { it.element.id == fromId }
+        val toIndex = currentList.indexOfFirst { it.element.id == toId }
+
+        if (fromIndex != -1 && toIndex != -1) {
+            Collections.swap(currentList, fromIndex, toIndex)
+            // Update the UI state with the newly ordered list
+            _uiState.update { it.copy(gridElements = currentList) }
+        }
+    }
+
+    fun onDragEnd() {
+        lastHoveredId = null
+        val finalList = _uiState.value.gridElements
+
+        viewModelScope.launch {
+            // Update orderIndex (Double) based on the new list order
+            val updatedElements = finalList.mapIndexed { index, wrapper ->
+                wrapper.element.copy(
+                    orderIndex = index.toDouble(),
+                    updatedAt = System.currentTimeMillis()
+                )
+            }
+            //repository.updateGridElements(updatedElements)
         }
     }
 
