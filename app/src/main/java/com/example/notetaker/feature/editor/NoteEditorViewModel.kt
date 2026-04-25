@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.notetaker.core.data.db.entity.NoteEntity
 import com.example.notetaker.core.data.db.entity.NoteImageEntity
+import com.example.notetaker.core.data.sync.ImageKitUploadWorker
 import com.example.notetaker.core.domain.base.Result
 import com.example.notetaker.core.domain.usecase.auth.ObserveUserIdUseCase
 import com.example.notetaker.core.domain.usecase.image.*
@@ -59,7 +60,7 @@ class NoteEditorViewModel @Inject constructor(
     private val updateNoteImageRotationUseCase: UpdateNoteImageRotationUseCase,
     private val observeUserIdUseCase: ObserveUserIdUseCase,
     private val savedStateHandle: SavedStateHandle,
-    @ApplicationContext private val context: Context /// TODO: remove context injection 
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
     private val TAG = "NoteEditorViewModel"
     private val userEditTrigger = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
@@ -169,6 +170,7 @@ class NoteEditorViewModel @Inject constructor(
         viewModelScope.launch {
             val sourceUri = Uri.parse(uriString)
             val internalUri = FileUtils.copyUriToInternalStorage(context, sourceUri, "note_images")
+            
             if (internalUri != null) {
                 addNoteImageUseCase(
                     AddNoteImageParams(
