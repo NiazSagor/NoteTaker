@@ -33,7 +33,7 @@ class NoteRepositoryImpl @Inject constructor(
     private val syncProcessor: SyncProcessor,
     private val syncManager: SyncManager,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
-    private val appScope: CoroutineScope // Injected application-scoped CoroutineScope
+    private val appScope: CoroutineScope
 ) : NoteRepository {
 
     private val workspaceId = "global_workspace" // Assuming a single global workspace
@@ -55,7 +55,6 @@ class NoteRepositoryImpl @Inject constructor(
         // Local save first (optimistic update)
         noteDao.upsert(note)
         syncManager.syncNote(note.id)
-        // TODO:  syncStatus appears = PENDING in firestore
     }
 
     override suspend fun softDeleteNote(id: String) {

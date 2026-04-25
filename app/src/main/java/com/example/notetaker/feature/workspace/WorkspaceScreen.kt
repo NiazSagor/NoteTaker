@@ -1,6 +1,7 @@
 package com.example.notetaker.feature.workspace
 
 import android.util.Log
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -40,6 +41,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -48,6 +51,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.example.notetaker.core.domain.model.GridElementType
 import com.example.notetaker.core.domain.model.GridElementWithContent
@@ -101,7 +105,7 @@ fun WorkspaceGrid(
     modifier: Modifier,
     onElementClick: (String) -> Unit // Handle the click here
 ) {
-    val state by viewModel.uiState.collectAsState()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
     var draggedItemId by remember { mutableStateOf<String?>(null) }
 
     LazyVerticalStaggeredGrid(
@@ -183,9 +187,17 @@ fun WorkspaceTile(
     ) {
         when (element.type) {
             GridElementType.NOTE -> {
+                val imageUrl = elementWithContent.note?.images
+                    ?.firstOrNull()
+                    ?.remoteImageUrl
+                    ?: elementWithContent.note?.images
+                        ?.firstOrNull()
+                        ?.localImageUri
+
                 NoteTileContent(
                     title = elementWithContent.note?.title ?: "Untitled",
-                    content = elementWithContent.note?.content ?: ""
+                    content = elementWithContent.note?.content ?: "",
+                    imageUrl = imageUrl
                 )
             }
 
@@ -197,24 +209,59 @@ fun WorkspaceTile(
         }
     }
 }
-
 @Composable
-fun NoteTileContent(title: String, content: String) {
-    Column(modifier = Modifier.padding(12.dp)) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = content,
-            style = MaterialTheme.typography.bodySmall,
-            maxLines = 4,
-            overflow = TextOverflow.Ellipsis
-        )
+fun NoteTileContent(
+    title: String?,
+    content: String?,
+    imageUrl: String?
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (imageUrl != null) {
+            AsyncImage(
+                model = imageUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.6f)
+                            )
+                        )
+                    )
+            )
+        }
+
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(10.dp)
+        ) {
+
+            if (!title.isNullOrBlank()) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White,
+                    maxLines = 1
+                )
+            }
+
+            if (!content.isNullOrBlank()) {
+                Text(
+                    text = content,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White,
+                    maxLines = 2
+                )
+            }
+        }
     }
 }
 
