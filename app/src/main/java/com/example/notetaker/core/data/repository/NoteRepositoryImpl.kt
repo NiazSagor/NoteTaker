@@ -39,8 +39,11 @@ class NoteRepositoryImpl @Inject constructor(
     private val workspaceId = "global_workspace" // Assuming a single global workspace
     private val TAG = "NoteRepositoryImpl"
 
+    init {
+        observeRemoteNotes()
+    }
+
     override fun observeNote(id: String): Flow<Note?> {
-        observeRemoteNotes(id)
         return noteDao.observeNote(id).map { it?.toDomain() }
     }
 
@@ -62,13 +65,13 @@ class NoteRepositoryImpl @Inject constructor(
         }
     }
 
-    private fun observeRemoteNotes(id: String) {
+    private fun observeRemoteNotes() {
         appScope.launch {
-            firestoreSource.observeNote(workspaceId, id)
+            firestoreSource.observeNotes(workspaceId)
                 .flowOn(ioDispatcher)
-                .onEach { remoteNote ->
-                    remoteNote?.let {
-                        syncProcessor.syncRemoteNote(remoteNote)
+                .onEach { remoteNotes ->
+                    remoteNotes.forEach {
+                        syncProcessor.syncRemoteNote(it)
                     }
                 }
                 .catch { e ->

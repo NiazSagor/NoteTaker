@@ -136,6 +136,7 @@ class SyncPendingWorker @AssistedInject constructor(
                         }
                     }
                 } else {
+                    pushLocalNote(localNote)
                     // Local note doesn't exist, handle new remote notes (if not deleted)
                     remoteNoteDto?.deleted?.let {
                         if (!it) {

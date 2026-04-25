@@ -15,10 +15,19 @@ import com.example.notetaker.core.domain.usecase.workspace.GetGridElementsUseCas
 import com.example.notetaker.core.domain.usecase.workspace.ReorderGridElementUseCase
 import com.example.notetaker.core.domain.usecase.workspace.ReorderParams
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.Collections
 import javax.inject.Inject
+
+private const val TAG = "WorkspaceViewModel"
 
 data class WorkspaceUiState(
     val gridElements: List<GridElementWithContent> = emptyList(),
@@ -86,9 +95,16 @@ class WorkspaceViewModel @Inject constructor(
                     is Result.Success -> {
                         _uiState.update { it.copy(gridElements = result.data, isLoading = false) }
                     }
+
                     is Result.Error -> {
-                        _uiState.update { it.copy(error = result.exception.message, isLoading = false) }
+                        _uiState.update {
+                            it.copy(
+                                error = result.exception.message,
+                                isLoading = false
+                            )
+                        }
                     }
+
                     Result.Loading -> {
                         _uiState.update { it.copy(isLoading = true) }
                     }
@@ -105,7 +121,8 @@ class WorkspaceViewModel @Inject constructor(
         when (event) {
             is WorkspaceEvent.OnCreateNote -> createNote()
             is WorkspaceEvent.OnReorder -> reorder(event.elementId, event.newOrderIndex)
-            is WorkspaceEvent.OnAddImage -> { /* TODO */ }
+            is WorkspaceEvent.OnAddImage -> { /* TODO */
+            }
         }
     }
 
@@ -147,17 +164,26 @@ class WorkspaceViewModel @Inject constructor(
                     updatedAt = System.currentTimeMillis()
                 )
             }
-            //repository.updateGridElements(updatedElements)
+            updatedElements.forEach {
+                reorderGridElementUseCase(
+                    ReorderParams(
+                        elementId = it.id,
+                        newOrderIndex = it.orderIndex
+                    )
+                )
+            }
         }
     }
 
     private fun createNote() {
         val userId = "NIAZ" /*uiState.value.userId ?: return*/
-        val nextOrderIndex = (uiState.value.gridElements.lastOrNull()?.element?.orderIndex ?: 0.0) + 1.0
+        val nextOrderIndex =
+            (uiState.value.gridElements.lastOrNull()?.element?.orderIndex ?: 0.0) + 1.0
 
         viewModelScope.launch {
             try {
-                val result = createNoteUseCase(CreateNoteParams(workspaceId, userId, nextOrderIndex))
+                val result =
+                    createNoteUseCase(CreateNoteParams(workspaceId, userId, nextOrderIndex))
                 if (result is Result.Success) {
                     _navigateToNoteEditor.emit(result.data)
                 }
