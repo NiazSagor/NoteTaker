@@ -26,13 +26,8 @@ android {
 
         buildConfigField(
             "String",
-            "IMAGEKIT_PRIVATE_KEY",
-            "\"${project.findProperty("IMAGEKIT_PRIVATE_KEY")}\""
-        )
-        buildConfigField(
-            "String",
-            "SUPABASE_API_KEY",
-            "\"${project.findProperty("SUPABASE_API_KEY")}\""
+            "SUPABASE_API",
+            "\"${project.findProperty("SUPABASE_API")}\""
         )
     }
 

@@ -3,6 +3,7 @@ package com.example.notetaker.core.data.repository
 import android.util.Log
 import com.example.notetaker.core.data.db.dao.ConflictDao
 import com.example.notetaker.core.data.db.dao.GridElementDao
+import com.example.notetaker.core.data.db.dao.NoteImageDao
 import com.example.notetaker.core.data.db.entity.GridElementEntity
 import com.example.notetaker.core.data.sync.SyncManager
 import com.example.notetaker.core.data.sync.SyncProcessor
@@ -26,6 +27,7 @@ class GridElementRepositoryImpl @Inject constructor(
     private val firestoreSource: FirestoreSource,
     private val syncProcessor: SyncProcessor,
     private val syncManager: SyncManager,
+    private val noteImageDao: NoteImageDao,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     private val appScope: CoroutineScope // Inject application-scoped CoroutineScope
 ) : GridElementRepository {

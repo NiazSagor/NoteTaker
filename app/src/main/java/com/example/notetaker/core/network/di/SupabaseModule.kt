@@ -20,7 +20,7 @@ object SupabaseModule {
     fun providesSupabaseClient(): SupabaseClient {
         return createSupabaseClient(
             supabaseUrl = "https://siohqbfckereskgkkrpc.supabase.co",
-            supabaseKey = BuildConfig.SUPABASE_API_KEY
+            supabaseKey = BuildConfig.SUPABASE_API
         ) {
             install(Storage) {
                 resumable {
