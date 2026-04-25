@@ -92,14 +92,15 @@ class SyncProcessor @Inject constructor(
                         )
                         noteDao.upsert(updatedLocalNote)
                     }
+                    // TODO: move convertNoteEntityToJson from dao 
                     ConflictType.TRUE_CONFLICT -> {
                         // Case 4: TRUE CONFLICT
                         val conflict = ConflictEntity(
                             id = UUID.randomUUID().toString(),
                             noteId = remoteNote.id,
                             workspaceId = workspaceId,
-                            localSnapshot = noteDao.convertNoteEntityToJson(localNote),
-                            remoteSnapshot = noteDao.convertNoteEntityToJson(remoteNote),
+                            localSnapshot = noteDao.convertNoteEntityToJson(localNote.toDomain()),
+                            remoteSnapshot = noteDao.convertNoteEntityToJson(remoteNote.toDomain()),
                             localVersion = localNote.localVersion,
                             remoteVersion = remoteNote.remoteVersion,
                             expectedVersion = remoteNote.remoteVersion,

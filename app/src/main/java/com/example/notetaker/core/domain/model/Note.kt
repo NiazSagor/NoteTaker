@@ -1,7 +1,9 @@
 package com.example.notetaker.core.domain.model
 
 import com.example.notetaker.core.data.db.entity.NoteEntity
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class Note(
     val id: String,
     val workspaceId: String,

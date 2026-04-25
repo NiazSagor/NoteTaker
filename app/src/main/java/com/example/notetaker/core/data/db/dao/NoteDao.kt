@@ -2,6 +2,7 @@ package com.example.notetaker.core.data.db.dao
 
 import androidx.room.*
 import com.example.notetaker.core.data.db.entity.NoteEntity
+import com.example.notetaker.core.domain.model.Note
 import com.example.notetaker.core.domain.model.SyncStatus
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.encodeToString
@@ -34,7 +35,7 @@ interface NoteDao {
         return getNote(id) // Room automatically handles fetching the entity
     }
 
-    fun convertNoteEntityToJson(note: NoteEntity): String {
+    fun convertNoteEntityToJson(note: Note): String {
         return Json.encodeToString(note)
     }
 

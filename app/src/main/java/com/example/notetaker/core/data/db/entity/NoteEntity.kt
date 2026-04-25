@@ -64,19 +64,4 @@ data class NoteEntity(
             deleted = deleted
         )
     }
-
-    fun toFirestoreMap(): Map<String, Any?> {
-        return mapOf(
-            "id" to id,
-            "workspaceId" to workspaceId,
-            "title" to title,
-            "content" to content,
-            "createdAt" to createdAt,
-            "updatedAt" to updatedAt,
-            "createdBy" to createdBy,
-            "lastEditedBy" to lastEditedBy,
-            "remoteVersion" to remoteVersion,
-            "deleted" to deleted
-        )
-    }
 }
