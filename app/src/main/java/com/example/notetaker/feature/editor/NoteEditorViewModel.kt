@@ -138,7 +138,9 @@ class NoteEditorViewModel @Inject constructor(
                 //savedStateHandle["draftContent"] = event.newContent
                 userEditTrigger.tryEmit(Unit)
             }
-            is NoteEditorEvent.OnAddImage -> addImage(event.uri)
+            is NoteEditorEvent.OnAddImage -> {
+                addImage(event.uri)
+            }
             is NoteEditorEvent.OnImageSelected -> {
                 _uiState.update { it.copy(interactionState = ImageInteractionState.Selected(event.imageId)) }
             }
@@ -172,7 +174,7 @@ class NoteEditorViewModel @Inject constructor(
     }
 
     private fun addImage(uri: String) {
-        val userId = uiState.value.userId ?: return
+        val userId = "NIAZ" /*uiState.value.userId ?: return*/
         viewModelScope.launch {
             addNoteImageUseCase(
                 AddNoteImageParams(
