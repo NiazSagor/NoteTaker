@@ -107,6 +107,9 @@ class NoteEditorViewModel @Inject constructor(
     @ApplicationContext private val context: Context // TODO: remove context: android.content.Context
 ) : ViewModel() {
     private val TAG = "NoteEditorViewModel"
+
+    private var isUserEditing = false
+
     private val userEditTrigger = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
     private val noteId: String = checkNotNull(savedStateHandle["noteId"])
@@ -326,11 +329,21 @@ class NoteEditorViewModel @Inject constructor(
             .onEach { result ->
                 if (result is Result.Success && result.data != null) {
                     val note = result.data
-                    _uiState.update {
-                        it.copy(
+                    _uiState.update { state ->
+                        state.copy(
                             note = note,
-                            draftTitle = note.title,
-                            draftContent = note.content
+
+                            draftTitle = if (!isUserEditing) {
+                                note.title
+                            } else {
+                                state.draftTitle
+                            },
+
+                            draftContent = if (!isUserEditing) {
+                                note.content
+                            } else {
+                                state.draftContent
+                            }
                         )
                     }
                 }
@@ -350,19 +363,24 @@ class NoteEditorViewModel @Inject constructor(
 
     private fun setupAutoSave() {
         userEditTrigger
-            .debounce(500)
-            .onEach { saveNote() }
+            .debounce(800)
+            .onEach {
+                saveNote()
+                isUserEditing = false
+            }
             .launchIn(viewModelScope)
     }
 
     fun onEvent(event: NoteEditorEvent) {
         when (event) {
             is NoteEditorEvent.OnTitleChange -> {
+                isUserEditing = true
                 _uiState.update { it.copy(draftTitle = event.newTitle) }
                 userEditTrigger.tryEmit(Unit)
             }
 
             is NoteEditorEvent.OnContentChange -> {
+                isUserEditing = true
                 _uiState.update { it.copy(draftContent = event.newContent) }
                 userEditTrigger.tryEmit(Unit)
             }
