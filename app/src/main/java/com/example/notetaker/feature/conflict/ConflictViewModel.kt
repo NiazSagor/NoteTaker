@@ -2,21 +2,26 @@ package com.example.notetaker.feature.conflict
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
-import com.example.notetaker.core.domain.base.Result
 import androidx.lifecycle.viewModelScope
-import com.example.notetaker.core.data.db.entity.ConflictEntity
+import com.example.notetaker.core.domain.base.Result
+import com.example.notetaker.core.domain.model.Conflict
 import com.example.notetaker.core.domain.model.ResolutionStrategy
 import com.example.notetaker.core.domain.usecase.auth.ObserveUserIdUseCase
 import com.example.notetaker.core.domain.usecase.conflict.ObserveConflictsForNoteUseCase
-import com.example.notetaker.core.domain.usecase.conflict.ResolveConflictUseCase
 import com.example.notetaker.core.domain.usecase.conflict.ResolveConflictParams
+import com.example.notetaker.core.domain.usecase.conflict.ResolveConflictUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class ConflictUiState(
-    val conflicts: List<ConflictEntity> = emptyList(),
+    val conflicts: List<Conflict> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
     val userId: String? = null
@@ -34,7 +39,8 @@ class ConflictViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val noteId: String = checkNotNull(savedStateHandle["noteId"]) // Assuming noteId is passed via navigation
+    private val noteId: String =
+        checkNotNull(savedStateHandle["noteId"]) // Assuming noteId is passed via navigation
 
     private val _uiState = MutableStateFlow(ConflictUiState())
     val uiState: StateFlow<ConflictUiState> = _uiState.asStateFlow()
@@ -61,9 +67,16 @@ class ConflictViewModel @Inject constructor(
                     is Result.Success -> {
                         _uiState.update { it.copy(conflicts = result.data, isLoading = false) }
                     }
+
                     is Result.Error -> {
-                        _uiState.update { it.copy(error = result.exception.message, isLoading = false) }
+                        _uiState.update {
+                            it.copy(
+                                error = result.exception.message,
+                                isLoading = false
+                            )
+                        }
                     }
+
                     Result.Loading -> {
                         _uiState.update { it.copy(isLoading = true) }
                     }
@@ -79,9 +92,9 @@ class ConflictViewModel @Inject constructor(
     }
 
     private fun resolveConflict(conflictId: String, strategy: ResolutionStrategy) {
-        val userId = uiState.value.userId ?: return
+        val userId = "NIAZ"/*uiState.value.userId ?: return*/
         viewModelScope.launch {
-            resolveConflictUseCase(ResolveConflictParams(conflictId, strategy, userId))
+            resolveConflictUseCase(ResolveConflictParams(conflictId, noteId, strategy, userId))
         }
     }
 }
