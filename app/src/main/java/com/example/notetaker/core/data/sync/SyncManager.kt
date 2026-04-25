@@ -26,4 +26,10 @@ class SyncManager @Inject constructor(
             .then(syncRequest)
             .enqueue()
     }
+
+    fun syncRotation(imageId: String) {
+        val syncRequest = SyncNoteImageWorker.createWorkRequest(imageId)
+        WorkManager.getInstance(context)
+            .enqueue(syncRequest)
+    }
 }

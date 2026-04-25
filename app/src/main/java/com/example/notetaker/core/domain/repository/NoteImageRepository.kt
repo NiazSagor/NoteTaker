@@ -8,6 +8,7 @@ interface NoteImageRepository {
     fun observeNoteImages(noteId: String): Flow<List<NoteImage>>
     suspend fun getNoteImage(id: String): NoteImage?
     suspend fun saveNoteImage(image: NoteImageEntity)
+    suspend fun updateRotation(image: NoteImageEntity)
     suspend fun saveNoteImages(images: List<NoteImageEntity>)
     suspend fun softDeleteNoteImage(id: String)
 }

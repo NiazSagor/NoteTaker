@@ -53,6 +53,13 @@ class NoteImageRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun updateRotation(image: NoteImageEntity) {
+        withContext(ioDispatcher) {
+            noteImageDao.upsert(image)
+            syncManager.syncRotation(image.id)
+        }
+    }
+
     override suspend fun saveNoteImages(images: List<NoteImageEntity>) {
         withContext(ioDispatcher) {
             // Local save first
