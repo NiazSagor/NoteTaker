@@ -1,0 +1,29 @@
+package com.example.notetaker.core.domain.usecase.image
+
+import com.example.notetaker.core.domain.base.UseCase
+import com.example.notetaker.core.domain.di.IoDispatcher
+import com.example.notetaker.core.domain.model.SyncStatus
+import com.example.notetaker.core.domain.repository.NoteImageRepository
+import kotlinx.coroutines.CoroutineDispatcher
+import javax.inject.Inject
+
+data class UpdateRotationParams(
+    val imageId: String,
+    val rotationDegrees: Float
+)
+
+class UpdateNoteImageRotationUseCase @Inject constructor(
+    private val repository: NoteImageRepository,
+    @IoDispatcher dispatcher: CoroutineDispatcher
+) : UseCase<com.example.notetaker.core.domain.usecase.image.UpdateRotationParams, Unit>(dispatcher) {
+    override suspend fun execute(parameters: com.example.notetaker.core.domain.usecase.image.UpdateRotationParams) {
+        val image = repository.getNoteImage(parameters.imageId) ?: return
+        val updatedImage = image.copy(
+            rotationDegrees = parameters.rotationDegrees,
+            updatedAt = System.currentTimeMillis(),
+            syncStatus = SyncStatus.PENDING,
+            localVersion = image.localVersion + 1
+        )
+        repository.saveNoteImage(updatedImage)
+    }
+}

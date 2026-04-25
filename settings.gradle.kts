@@ -21,11 +21,3 @@ dependencyResolutionManagement {
 
 rootProject.name = "NoteTaker"
 include(":app")
-include(":core:data")
-include(":core:domain")
-include(":core:network")
-include(":core:ui")
-include(":feature:workspace")
-include(":feature:editor")
-include(":feature:conflict")
-include(":feature:auth")

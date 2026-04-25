@@ -3,15 +3,15 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.dagger.hilt)
-    //alias(libs.plugins.jetbrains.kotlin.serialization)
+    alias(libs.plugins.jetbrains.kotlin.serialization)
     //alias(libs.plugins.detekt)
     alias(libs.plugins.ksp)
-//    alias(libs.plugins.google.services)
+    id("com.google.gms.google-services")
 }
 
 android {
     namespace = "com.example.notetaker"
-    compileSdk = 36
+    compileSdk = 35
     defaultConfig {
         applicationId = "com.example.notetaker"
         minSdk = 24
@@ -19,6 +19,10 @@ android {
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        ksp {
+            arg("room.schemaLocation", "$projectDir/schemas")
+        }
     }
 
     buildTypes {
@@ -52,14 +56,6 @@ android {
 
 
 dependencies {
-  implementation(project(":core:domain"))
-  implementation(project(":core:data"))
-  implementation(project(":core:network"))
-  implementation(project(":core:ui"))
-  implementation(project(":feature:workspace"))
-  implementation(project(":feature:editor"))
-  implementation(project(":feature:conflict"))
-  implementation(project(":feature:auth"))
 
   val composeBom = platform(libs.androidx.compose.bom)
   implementation(composeBom)
@@ -69,7 +65,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
   implementation(libs.androidx.lifecycle.runtime.ktx)
   implementation(libs.androidx.activity.compose)
-
+    implementation(libs.kotlinx.serialization.json)
   // Arch Components
   implementation(libs.androidx.lifecycle.runtime.compose)
   implementation(libs.androidx.lifecycle.viewmodel.compose)
@@ -88,19 +84,30 @@ dependencies {
   testImplementation(libs.junit)
   testImplementation(libs.kotlinx.coroutines.test)
 
+    implementation(libs.bundles.room.database)
+
   // Instrumented tests: jUnit rules and runners
   androidTestImplementation(libs.androidx.test.core)
   androidTestImplementation(libs.androidx.test.ext.junit)
   androidTestImplementation(libs.androidx.test.runner)
   androidTestImplementation(libs.androidx.test.espresso.core)
-
+    implementation(libs.androidx.hilt.work)
+    implementation(libs.androidx.work)
   // Navigation
 //  implementation(libs.androidx.navigation3.ui)
 //  implementation(libs.androidx.navigation3.runtime)
 //  implementation(libs.androidx.lifecycle.viewmodel.navigation3)
-
+    implementation(libs.coil.compose)
+    implementation(libs.coil.network)
   // Hilt
   implementation(libs.hilt.android)
   ksp(libs.hilt.compiler)
+    ksp(libs.room.compiler)
+    ksp(libs.androidx.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
+
+    implementation(platform("com.google.firebase:firebase-bom:34.12.0"))
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-firestore")
+    implementation("com.google.firebase:firebase-database")
 }
