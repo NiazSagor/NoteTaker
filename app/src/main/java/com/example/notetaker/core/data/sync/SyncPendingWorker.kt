@@ -25,8 +25,6 @@ import com.example.notetaker.core.domain.conflict.ConflictDetector
 import com.example.notetaker.core.domain.conflict.ConflictType
 import com.example.notetaker.core.domain.di.IoDispatcher
 import com.example.notetaker.core.domain.model.SyncStatus
-import com.example.notetaker.core.domain.repository.AuthRepository
-import com.example.notetaker.core.domain.repository.ConflictRepository
 import com.example.notetaker.core.network.firebase.FirestoreSource
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject

@@ -12,9 +12,9 @@ import javax.inject.Inject
 
 data class ResolveConflictParams(
     val conflictId: String,
-    val noteId: String, // Needed if repository.saveNote requires it, or for clarity
+    val noteId: String,
     val resolutionStrategy: ResolutionStrategy,
-    val userId: String // The user who is resolving the conflict
+    val userId: String
 )
 
 class ResolveConflictUseCase @Inject constructor(
@@ -26,17 +26,27 @@ class ResolveConflictUseCase @Inject constructor(
         val conflict = conflictRepository.getConflict(parameters.conflictId)
             ?: throw Exception("Conflict not found for ID: ${parameters.conflictId}")
 
-        val noteToUpdate: NoteEntity // We need to convert domain Note back to Entity for repository save
+        val noteToUpdate: NoteEntity
         val resolvedBy = parameters.userId
+        val conflictRemoteVersion = conflict.remoteVersion
 
         when (parameters.resolutionStrategy) {
             ResolutionStrategy.KEEP_LOCAL -> {
-                // Load the local snapshot as NoteEntity and update it
-                val localNote =
-                    conflict.localNote?.toEntity() // Convert domain model back to entity
-                        ?: throw Exception("Local snapshot not available for conflict ${conflict.noteId}")
-                noteToUpdate =
-                    localNote.copy(syncStatus = SyncStatus.PENDING) // Mark for sync after resolution
+                // Load the local snapshot as NoteDomain model, convert to entity
+                val localNote = conflict.localNote?.toEntity()
+                    ?: throw Exception("Local snapshot not available for conflict ${conflict.noteId}")
+
+                // When keeping local, we are effectively overwriting the remote state for this sync.
+                // The local changes are now considered the source of truth.
+                // We set syncStatus to PENDING to push this resolved local version.
+                // Crucially, we should also update the remoteVersion in the local entity to match
+                // the remote version that caused the conflict. This prevents immediate re-conflict
+                // if the remote state hasn't changed further. The localVersion is incremented as it's a new change.
+                noteToUpdate = localNote.copy(
+                    syncStatus = SyncStatus.PENDING,
+                    remoteVersion = conflictRemoteVersion, // Syncing based on the remote version we conflicted with
+                    localVersion = localNote.localVersion + 1 // Increment local version for the new local resolution change
+                )
             }
 
             ResolutionStrategy.KEEP_REMOTE -> {
