@@ -9,7 +9,7 @@ import kotlinx.serialization.json.Json
 
 @Entity(tableName = "conflicts")
 data class ConflictEntity(
-    @PrimaryKey val id: String = "",                // UUID
+    @PrimaryKey
     val noteId: String = "",                        // which note has conflict
     val workspaceId: String = "",
     val localSnapshot: String? = null,                 // JSON of local NoteEntity at conflict time
@@ -29,7 +29,6 @@ data class ConflictEntity(
 ) {
     fun toDomain(): Conflict {
         return Conflict(
-            id = id,
             noteId = noteId,
             workspaceId = workspaceId,
             localNote = localSnapshot?.let { Json.decodeFromString<Note>(it) },

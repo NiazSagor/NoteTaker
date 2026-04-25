@@ -11,11 +11,10 @@ class SyncManager @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     fun syncNote(noteId: String) {
-        SyncNoteWorker.enqueue(context, noteId)
+        SyncPendingWorker.enqueue(context)
     }
-
     fun syncGridElement(elementId: String) {
-        SyncGridElementWorker.enqueue(context, elementId)
+        SyncPendingWorker.enqueue(context)
     }
 
     fun syncNoteImage(imageId: String) {

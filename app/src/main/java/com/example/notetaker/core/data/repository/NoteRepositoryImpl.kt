@@ -13,7 +13,12 @@ import com.example.notetaker.core.domain.repository.NoteRepository
 import com.example.notetaker.core.network.firebase.FirestoreSource
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -34,11 +39,8 @@ class NoteRepositoryImpl @Inject constructor(
     private val workspaceId = "global_workspace" // Assuming a single global workspace
     private val TAG = "NoteRepositoryImpl"
 
-    init {
-        observeRemoteNotes()
-    }
-
     override fun observeNote(id: String): Flow<Note?> {
+        observeRemoteNotes(id)
         return noteDao.observeNote(id).map { it?.toDomain() }
     }
 
@@ -60,14 +62,12 @@ class NoteRepositoryImpl @Inject constructor(
         }
     }
 
-    private fun observeRemoteNotes() {
+    private fun observeRemoteNotes(id: String) {
         appScope.launch {
-            firestoreSource.observeNotes(workspaceId)
+            firestoreSource.observeNote(workspaceId, id)
                 .flowOn(ioDispatcher)
-                .onEach { remoteNotes ->
-
-                    remoteNotes.forEach { remoteNote ->
-                        Log.e(TAG, "observeRemoteNotes: $remoteNote", )
+                .onEach { remoteNote ->
+                    remoteNote?.let {
                         syncProcessor.syncRemoteNote(remoteNote)
                     }
                 }

@@ -1,9 +1,6 @@
 package com.example.notetaker.core.network.firebase
 
 import android.util.Log
-import com.example.notetaker.core.data.db.entity.GridElementEntity
-import com.example.notetaker.core.data.db.entity.NoteEntity
-import com.example.notetaker.core.data.db.entity.NoteImageEntity
 import com.example.notetaker.core.network.firebase.model.GridElementDto
 import com.example.notetaker.core.network.firebase.model.NoteDto
 import com.example.notetaker.core.network.firebase.model.NoteImageDto
@@ -21,6 +18,7 @@ class FirestoreSource @Inject constructor(
     private val firestore: FirebaseFirestore
 ) {
     private val TAG = "FirestoreSource"
+
     // --- Note Firestore Operations ---
     fun observeNotes(workspaceId: String): Flow<List<NoteDto>> = callbackFlow {
         val listener = firestore.collection("workspaces")
@@ -36,7 +34,7 @@ class FirestoreSource @Inject constructor(
                 if (snapshot != null) {
                     // Map to DTOs directly from Firestore
                     val notes = snapshot.toObjects(NoteDto::class.java)
-                    Log.e(TAG, "observeNotes: notes $notes", )
+                    Log.e(TAG, "observeNotes: notes $notes")
                     trySend(notes)
                 }
             }
@@ -117,6 +115,57 @@ class FirestoreSource @Inject constructor(
             .await()
     }
 
+    fun observeNote(
+        workspaceId: String,
+        noteId: String
+    ): Flow<NoteDto?> = callbackFlow {
+
+        val listener = firestore.collection("workspaces")
+            .document(workspaceId)
+            .collection("notes")
+            .document(noteId)
+            .addSnapshotListener { snapshot, error ->
+
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+
+                if (snapshot?.metadata?.hasPendingWrites() == true) return@addSnapshotListener
+
+                val note = snapshot?.toObject(NoteDto::class.java)
+
+                trySend(note)
+            }
+
+        awaitClose { listener.remove() }
+    }
+
+    suspend fun getNote(
+        workspaceId: String,
+        noteId: String
+    ): NoteDto? {
+        val snapshot = firestore.collection("workspaces")
+            .document(workspaceId)
+            .collection("notes")
+            .document(noteId)
+            .get()
+            .await()
+        return snapshot.toObject(NoteDto::class.java)
+    }
+
+    suspend fun getGridElement(
+        workspaceId: String,
+        elementId: String
+    ): GridElementDto? {
+        val snapshot = firestore.collection("workspaces")
+            .document(workspaceId)
+            .collection("gridElements")
+            .document(elementId)
+            .get()
+            .await()
+        return snapshot.toObject(GridElementDto::class.java)
+    }
     // Note: Firestore rules will need to be configured to allow these operations.
     // For assignment purposes, a broad rule `allow read, write: if request.auth != null;` is sufficient (Section 14.1).
 }

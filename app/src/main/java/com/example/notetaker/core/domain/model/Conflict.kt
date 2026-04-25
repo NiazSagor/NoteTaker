@@ -8,7 +8,6 @@ import kotlinx.serialization.json.Json
 
 @Serializable // Make the domain model serializable for potential future needs
 data class Conflict(
-    val id: String,
     val noteId: String,
     val workspaceId: String,
     val localNote: Note?, // Parsed from localSnapshot JSON
@@ -29,7 +28,6 @@ data class Conflict(
         // Note: This assumes ConflictEntity's JSON fields are compatible with Note's serialization.
         // We'll serialize the Note domain models back to JSON for the entity.
         return ConflictEntity(
-            id = id,
             noteId = noteId,
             workspaceId = workspaceId,
             localSnapshot = localNote?.let { Json.encodeToString(it) }, // Serialize Note domain model

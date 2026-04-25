@@ -8,9 +8,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.notetaker.core.data.sync.ImageKitUploadWorker
 import com.example.notetaker.core.domain.base.Result
+import com.example.notetaker.core.domain.model.Conflict
 import com.example.notetaker.core.domain.model.Note
 import com.example.notetaker.core.domain.model.NoteImage
 import com.example.notetaker.core.domain.usecase.auth.ObserveUserIdUseCase
+import com.example.notetaker.core.domain.usecase.conflict.ObserveConflictsForNoteUseCase
 import com.example.notetaker.core.domain.usecase.image.*
 import com.example.notetaker.core.domain.usecase.note.ObserveNoteUseCase
 import com.example.notetaker.core.domain.usecase.note.UpdateNoteParams
@@ -28,6 +30,7 @@ data class NoteEditorUiState(
     val draftTitle: String = "",
     val draftContent: String = "",
     val userId: String? = null,
+    val hasConflict: Boolean? = false,
     val interactionState: ImageInteractionState = ImageInteractionState.Idle
 )
 
@@ -53,6 +56,7 @@ sealed class NoteEditorEvent {
 
 @HiltViewModel
 class NoteEditorViewModel @Inject constructor(
+    private val observeConflictsForNoteUseCase: ObserveConflictsForNoteUseCase,
     private val observeNoteUseCase: ObserveNoteUseCase,
     private val observeNoteImagesUseCase: ObserveNoteImagesUseCase,
     private val updateNoteUseCase: UpdateNoteUseCase,
@@ -60,7 +64,7 @@ class NoteEditorViewModel @Inject constructor(
     private val updateNoteImageRotationUseCase: UpdateNoteImageRotationUseCase,
     private val observeUserIdUseCase: ObserveUserIdUseCase,
     private val savedStateHandle: SavedStateHandle,
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context // TODO: remove context: android.content.Context
 ) : ViewModel() {
     private val TAG = "NoteEditorViewModel"
     private val userEditTrigger = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
@@ -76,6 +80,7 @@ class NoteEditorViewModel @Inject constructor(
         observeAuth()
         observeImages()
         observeNote()
+        observeConflicts()
     }
 
     private fun observeAuth() {
@@ -83,6 +88,24 @@ class NoteEditorViewModel @Inject constructor(
             .onEach { result ->
                 if (result is Result.Success) {
                     _uiState.update { it.copy(userId = result.data) }
+                }
+            }
+            .launchIn(viewModelScope)
+    }
+
+    private fun observeConflicts() {
+        observeConflictsForNoteUseCase(noteId)
+            .onEach { result ->
+                when (result) {
+                    is Result.Success -> {
+                        _uiState.update { it.copy(hasConflict = result.data.isNotEmpty()) }
+//                        _uiState.update { it.copy(hasConflict = true) }
+                    }
+                    is Result.Error -> {
+                        Log.e(TAG, "Error observing conflicts: ${result.exception.message}")
+                    }
+                    Result.Loading -> {
+                    }
                 }
             }
             .launchIn(viewModelScope)

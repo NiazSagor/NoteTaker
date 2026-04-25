@@ -34,7 +34,7 @@ class ResolveConflictUseCase @Inject constructor(
                 // Load the local snapshot as NoteEntity and update it
                 val localNote =
                     conflict.localNote?.toEntity() // Convert domain model back to entity
-                        ?: throw Exception("Local snapshot not available for conflict ${conflict.id}")
+                        ?: throw Exception("Local snapshot not available for conflict ${conflict.noteId}")
                 noteToUpdate =
                     localNote.copy(syncStatus = SyncStatus.PENDING) // Mark for sync after resolution
             }
@@ -43,7 +43,7 @@ class ResolveConflictUseCase @Inject constructor(
                 // Load the remote snapshot as NoteEntity and update it
                 val remoteNote =
                     conflict.remoteNote?.toEntity() // Convert domain model back to entity
-                        ?: throw Exception("Remote snapshot not available for conflict ${conflict.id}")
+                        ?: throw Exception("Remote snapshot not available for conflict ${conflict.noteId}")
                 noteToUpdate = remoteNote.copy(syncStatus = SyncStatus.SYNCED) // Mark as synced
             }
             // Add other strategies if needed, e.g., MERGE (complex)
@@ -52,14 +52,13 @@ class ResolveConflictUseCase @Inject constructor(
             }
         }
 
-        // Update the note in the database
-        noteRepository.saveNote(noteToUpdate) // Assuming saveNote accepts NoteEntity
-
-        // Mark the conflict as resolved
         conflictRepository.resolveConflict(
             id = parameters.conflictId,
             strategy = parameters.resolutionStrategy,
             userId = resolvedBy
         )
+
+        // Update the note in the database
+        noteRepository.saveNote(noteToUpdate)
     }
 }

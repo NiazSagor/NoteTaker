@@ -12,14 +12,16 @@ interface ConflictDao {
     @Query("SELECT * FROM conflicts WHERE noteId = :noteId AND isResolved = 0")
     fun observeConflictsForNote(noteId: String): Flow<List<ConflictEntity>>
 
-    @Query("SELECT * FROM conflicts WHERE id = :id")
+    @Transaction
+    @Query("SELECT * FROM conflicts WHERE noteId = :id")
     suspend fun getById(id: String): ConflictEntity?
 
+    @Transaction
     @Upsert
     suspend fun upsert(conflict: ConflictEntity)
 
     @Transaction
-    @Query("UPDATE conflicts SET isResolved = 1, resolvedAt = :resolvedAt, resolutionStrategy = :strategy, resolvedBy = :userId WHERE id = :id")
+    @Query("UPDATE conflicts SET isResolved = 1, resolvedAt = :resolvedAt, resolutionStrategy = :strategy, resolvedBy = :userId WHERE noteId = :id")
     suspend fun markResolved(id: String, resolvedAt: Long, strategy: String, userId: String)
 
     // Add method to update syncStatus if applicable to ConflictEntity, though typically syncStatus is on the entity being conflicted.
