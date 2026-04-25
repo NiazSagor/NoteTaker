@@ -59,7 +59,6 @@ fun WorkspaceScreen(
     onNoteClick: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val gridState = rememberLazyGridState()
     val navigateToNoteEditor by viewModel.navigateToNoteEditor.collectAsState(initial = null)
     LaunchedEffect(navigateToNoteEditor) {
         navigateToNoteEditor?.let { noteId ->
@@ -69,12 +68,9 @@ fun WorkspaceScreen(
         }
     }
 
-    var draggedItemIndex by remember { mutableStateOf<Int?>(null) }
-    var dragOffset by remember { mutableStateOf(Offset.Zero) }
-
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("NoteTaker Workspace") })
+            TopAppBar(title = { Text("Workspace") })
         },
         floatingActionButton = {
             FloatingActionButton(onClick = { viewModel.onEvent(WorkspaceEvent.OnCreateNote) }) {

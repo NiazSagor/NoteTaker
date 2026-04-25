@@ -5,7 +5,6 @@ import android.net.Uri
 import android.util.Log
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -153,13 +152,17 @@ class NoteEditorViewModel @Inject constructor(
                         persistRotation(state.imageId, state.currentDegrees)
                         _touchState.value = ImageTouchState.Selected(imageId)
                     }
+
                     is ImageTouchState.RotationReady -> {
                         _touchState.value = ImageTouchState.Selected(imageId)
                     }
+
                     is ImageTouchState.Idle -> {
                         _touchState.value = ImageTouchState.Selected(imageId)
                     }
-                    else -> { /* already selected */ }
+
+                    else -> { /* already selected */
+                    }
                 }
             }
 
@@ -175,6 +178,7 @@ class NoteEditorViewModel @Inject constructor(
                             pointer1Id = activePointers[1].id.value
                         )
                     }
+
                     else -> {
                         _touchState.value = ImageTouchState.RotationReady(
                             imageId = imageId,
@@ -268,120 +272,6 @@ class NoteEditorViewModel @Inject constructor(
             lastAngle = baseAngle
         )
     }
-
-//    private fun enterRotatingState(
-//        imageId: String,
-//        imageBounds: Rect,
-//        activePointers: List<PointerInputChange>,
-//        currentRotation: Float
-//    ) {
-//        val pivot = Offset(imageBounds.center.x, imageBounds.center.y)
-//        val pointer1 = activePointers[1]   // Finger 2 is rotation reference
-//        val baseAngle = angleBetween(pivot, pointer1.position)
-//
-//        _touchState.value = ImageTouchState.Rotating(
-//            imageId = imageId,
-//            pointer0Id = activePointers[0].id.value,
-//            pointer1Id = activePointers[1].id.value,
-//            pointer2Id = activePointers[2].id.value,
-//            currentDegrees = currentRotation,
-//            baseAngle = baseAngle,
-//            committedDegrees = currentRotation
-//        )
-//    }
-
-//    fun onImagePointerEvent(
-//        imageId: String,
-//        imageBounds: Rect,          // bounds of the image on screen
-//        event: List<PointerInputChange>,
-//        currentRotation: Float      // current saved rotation of this image
-//    ) {
-//        val activePointers = event.changes.filter { it.pressed }
-//        val state = _touchState.value
-//
-//        when {
-//
-//            // ── Finger 1 lands ──────────────────────────────
-//            activePointers.size == 1 && state is ImageTouchState.Idle -> {
-//                _touchState.value = ImageTouchState.Selected(imageId)
-//            }
-//
-//            // ── Finger 2 lands ──────────────────────────────
-//            activePointers.size == 2 && state is ImageTouchState.Selected -> {
-//                _touchState.value = ImageTouchState.RotationReady(
-//                    imageId = imageId,
-//                    pointer0Id = activePointers[0].id.value,
-//                    pointer1Id = activePointers[1].id.value
-//                )
-//            }
-//
-//            // Finger 3 lands branch — AFTER (safe)
-//            activePointers.size == 3 && state is ImageTouchState.RotationReady -> {
-//                val pivot = imageBounds.center
-//
-//                // Safe lookup — if pointer1 vanished between events, abort
-//                val pointer1 = activePointers
-//                    .firstOrNull { it.id.value == state.pointer1Id }
-//                    ?: run {
-//                        // Finger 2 already gone — reset to selected
-//                        _touchState.value = ImageTouchState.Selected(imageId)
-//                        return
-//                    }
-//
-//                // Safe lookup for the new third pointer
-//                val thirdPointer = activePointers
-//                    .firstOrNull { it.id.value != state.pointer0Id
-//                            && it.id.value != state.pointer1Id }
-//                    ?: run {
-//                        // Cannot identify third finger — stay in RotationReady
-//                        return
-//                    }
-//
-//                val baseAngle = angleBetween(pivot, pointer1.position)
-//
-//                _touchState.value = ImageTouchState.Rotating(
-//                    imageId = imageId,
-//                    pointer0Id = state.pointer0Id,
-//                    pointer1Id = state.pointer1Id,
-//                    pointer2Id = thirdPointer.id.value,
-//                    currentDegrees = currentRotation,
-//                    baseAngle = baseAngle,
-//                    committedDegrees = currentRotation
-//                )
-//            }
-//
-//            // Rotating update branch — BEFORE (can also crash)
-//            activePointers.size == 3 && state is ImageTouchState.Rotating -> {
-//                val pivot = imageBounds.center
-//                val pointer1 = activePointers
-//                    .firstOrNull { it.id.value == state.pointer1Id }
-//                    ?: return   // ← was already firstOrNull but double check
-//
-//                val currentAngle = angleBetween(pivot, pointer1.position)
-//                val delta = currentAngle - state.baseAngle
-//                val newDegrees = state.committedDegrees + delta
-//
-//                _touchState.value = state.copy(currentDegrees = newDegrees)
-//            }
-//
-//            // ── A finger lifted while rotating ──────────────
-//            activePointers.size < 3 && state is ImageTouchState.Rotating -> {
-//                // Persist final rotation — ONLY written here, never during gesture
-//                persistRotation(state.imageId, state.currentDegrees)
-//
-//                _touchState.value = if (activePointers.isEmpty()) {
-//                    ImageTouchState.Idle
-//                } else {
-//                    ImageTouchState.Selected(state.imageId)
-//                }
-//            }
-//
-//            // ── All fingers lifted from Selected ────────────
-//            activePointers.isEmpty() && state is ImageTouchState.Selected -> {
-//                _touchState.value = ImageTouchState.Idle
-//            }
-//        }
-//    }
 
     private fun persistRotation(imageId: String, degrees: Float) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -506,7 +396,7 @@ class NoteEditorViewModel @Inject constructor(
     }
 
     private fun saveNote() {
-        val userId = "NIAZ" // uiState.value.userId ?: "ANONYMOUS"
+        val userId = uiState.value.userId ?: return
         viewModelScope.launch {
             updateNoteUseCase(
                 UpdateNoteParams(
@@ -520,7 +410,7 @@ class NoteEditorViewModel @Inject constructor(
     }
 
     private fun addImage(uriString: String) {
-        val userId = "NIAZ" // uiState.value.userId ?: "ANONYMOUS"
+        val userId = uiState.value.userId ?: return
         viewModelScope.launch {
             val sourceUri = Uri.parse(uriString)
             val internalUri = FileUtils.copyUriToInternalStorage(context, sourceUri, "note_images")

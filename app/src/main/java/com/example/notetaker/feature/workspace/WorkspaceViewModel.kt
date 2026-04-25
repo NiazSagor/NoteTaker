@@ -176,7 +176,7 @@ class WorkspaceViewModel @Inject constructor(
     }
 
     private fun createNote() {
-        val userId = "NIAZ" /*uiState.value.userId ?: return*/
+        val userId = uiState.value.userId ?: return
         val nextOrderIndex =
             (uiState.value.gridElements.lastOrNull()?.element?.orderIndex ?: 0.0) + 1.0
 
