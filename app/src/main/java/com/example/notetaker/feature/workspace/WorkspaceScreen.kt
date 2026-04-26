@@ -135,7 +135,7 @@ fun WorkspaceGrid(
                             onDragStart = { draggedItemId = wrapper.element.id },
                             onDragEnd = {
                                 draggedItemId = null
-                                viewModel.onDragEnd()
+                                viewModel.onDragEnd(wrapper.element.id)
                             },
                             onDragCancel = { draggedItemId = null },
                             onDrag = { change, _ ->

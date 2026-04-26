@@ -120,7 +120,7 @@ class WorkspaceViewModel @Inject constructor(
     fun onEvent(event: WorkspaceEvent) {
         when (event) {
             is WorkspaceEvent.OnCreateNote -> createNote()
-            is WorkspaceEvent.OnReorder -> reorder(event.elementId, event.newOrderIndex)
+            is WorkspaceEvent.OnReorder -> {}
             is WorkspaceEvent.OnAddImage -> { /* TODO */
             }
         }
@@ -152,26 +152,42 @@ class WorkspaceViewModel @Inject constructor(
         }
     }
 
-    fun onDragEnd() {
+    fun onDragEnd(draggedId: String) {
         lastHoveredId = null
-        val finalList = _uiState.value.gridElements
+        val currentList = _uiState.value.gridElements
+        val droppedIndex = currentList.indexOfFirst { it.element.id == draggedId }
+
+        if (droppedIndex == -1) return
+
+        // 1. Get the indices of the items above and below the drop target
+        val prevIndex = currentList.getOrNull(droppedIndex - 1)?.element?.orderIndex
+        val nextIndex = currentList.getOrNull(droppedIndex + 1)?.element?.orderIndex
+
+        // 2. Calculate the new midpoint
+        val newOrderIndex = when {
+            // Dropped at the very top
+            prevIndex == null && nextIndex != null -> nextIndex - 1.0
+            // Dropped at the very bottom
+            prevIndex != null && nextIndex == null -> prevIndex + 1.0
+            // Dropped between two items
+            prevIndex != null && nextIndex != null -> (prevIndex + nextIndex) / 2.0
+            // List was empty or only had one item
+            else -> 0.0
+        }
 
         viewModelScope.launch {
-            // Update orderIndex (Double) based on the new list order
-            val updatedElements = finalList.mapIndexed { index, wrapper ->
-                wrapper.element.copy(
-                    orderIndex = index.toDouble(),
-                    updatedAt = System.currentTimeMillis()
+            val movedElement = currentList[droppedIndex].element.copy(
+                orderIndex = newOrderIndex,
+                updatedAt = System.currentTimeMillis()
+            )
+
+            // 3. PERSISTENCE: Only update this ONE record in Room & Firestore
+            reorderGridElementUseCase(
+                ReorderParams(
+                    elementId = movedElement.id,
+                    newOrderIndex = movedElement.orderIndex
                 )
-            }
-            updatedElements.forEach {
-                reorderGridElementUseCase(
-                    ReorderParams(
-                        elementId = it.id,
-                        newOrderIndex = it.orderIndex
-                    )
-                )
-            }
+            )
         }
     }
 
@@ -192,11 +208,5 @@ class WorkspaceViewModel @Inject constructor(
             }
         }
 
-    }
-
-    private fun reorder(elementId: String, newOrderIndex: Double) {
-        viewModelScope.launch {
-            reorderGridElementUseCase(ReorderParams(elementId, newOrderIndex))
-        }
     }
 }
