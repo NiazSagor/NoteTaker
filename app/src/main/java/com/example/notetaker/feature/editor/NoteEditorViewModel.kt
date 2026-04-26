@@ -278,8 +278,6 @@ class NoteEditorViewModel @Inject constructor(
 
     private fun persistRotation(imageId: String, degrees: Float) {
         viewModelScope.launch(Dispatchers.IO) {
-            //noteImageRepository.updateRotation(imageId, degrees)
-            // Room write → triggers Firestore sync via syncStatus = PENDING
             updateNoteImageRotationUseCase(
                 UpdateRotationParams(imageId, degrees)
             )

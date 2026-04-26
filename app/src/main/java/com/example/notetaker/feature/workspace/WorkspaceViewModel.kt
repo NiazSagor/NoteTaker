@@ -27,8 +27,6 @@ import kotlinx.coroutines.launch
 import java.util.Collections
 import javax.inject.Inject
 
-private const val TAG = "WorkspaceViewModel"
-
 data class WorkspaceUiState(
     val gridElements: List<GridElementWithContent> = emptyList(),
     val isLoading: Boolean = false,
@@ -159,11 +157,9 @@ class WorkspaceViewModel @Inject constructor(
 
         if (droppedIndex == -1) return
 
-        // 1. Get the indices of the items above and below the drop target
         val prevIndex = currentList.getOrNull(droppedIndex - 1)?.element?.orderIndex
         val nextIndex = currentList.getOrNull(droppedIndex + 1)?.element?.orderIndex
 
-        // 2. Calculate the new midpoint
         val newOrderIndex = when {
             // Dropped at the very top
             prevIndex == null && nextIndex != null -> nextIndex - 1.0
@@ -181,7 +177,6 @@ class WorkspaceViewModel @Inject constructor(
                 updatedAt = System.currentTimeMillis()
             )
 
-            // 3. PERSISTENCE: Only update this ONE record in Room & Firestore
             reorderGridElementUseCase(
                 ReorderParams(
                     elementId = movedElement.id,
@@ -204,7 +199,6 @@ class WorkspaceViewModel @Inject constructor(
                     _navigateToNoteEditor.emit(result.data)
                 }
             } catch (e: Exception) {
-                // Handle error, e.g., show a toast or update error state
             }
         }
 

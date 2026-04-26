@@ -32,8 +32,6 @@ class AuthViewModel @Inject constructor(
 
     init {
         observeAuthenticationState()
-        // Optionally trigger anonymous sign-in if no user is found immediately
-        // This might be better handled by a navigation guard or app entry point
     }
 
     private fun observeAuthenticationState() {
@@ -66,9 +64,7 @@ class AuthViewModel @Inject constructor(
             val result = signInAnonymouslyUseCase(Unit)
             when (result) {
                 is Result.Success -> {
-                    // User signed in, _uiState will be updated by observeAuthenticationState
-                    // For immediate feedback, we could manually set userId here,
-                    // but observing it is more robust.
+                    _uiState.update { it.copy(userId = result.data, isLoading = false) }
                 }
                 is Result.Error -> {
                     _uiState.update { it.copy(error = result.exception.message, isLoading = false) }

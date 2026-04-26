@@ -34,20 +34,27 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 
+/**
+ * A background worker responsible for synchronizing locally modified data with the remote Firestore source.
+ *
+ * This worker identifies entities (Notes and GridElements) with a [SyncStatus.PENDING] or [SyncStatus.ERROR] status,
+ * performs conflict detection using versioning logic, and pushes local changes to the cloud.
+ * In case of version mismatches that cannot be automatically resolved, it flags the entities as
+ * [SyncStatus.CONFLICT] and creates a [ConflictEntity] for manual resolution.
+ */
 @HiltWorker
 class SyncPendingWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted workerParams: WorkerParameters,
     private val noteDao: NoteDao,
     private val gridElementDao: GridElementDao,
-    private val noteImageDao: NoteImageDao,
     private val conflictDao: ConflictDao,
     private val firestoreSource: FirestoreSource,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : CoroutineWorker(appContext, workerParams) {
 
     private val TAG = "SyncPendingWorker"
-    private val workspaceId = "global_workspace" // Hardcoded for now
+    private val workspaceId = "global_workspace"
 
     override suspend fun doWork(): Result {
         return withContext(ioDispatcher) {
@@ -55,21 +62,16 @@ class SyncPendingWorker @AssistedInject constructor(
                 // Fetch all items marked as PENDING or ERROR from local DB
                 val pendingNotes = noteDao.getPendingOrErrorNotes()
                 val pendingGridElements = gridElementDao.getPendingOrErrorGridElements()
-                val pendingNoteImages = noteImageDao.getPendingOrErrorNoteImages()
 
                 awaitAll(
                     async { processNotes(pendingNotes) },
                     async { processGridElements(pendingGridElements) },
-                    async { processNoteImages(pendingNoteImages) }
                 )
-
-                // If any of the async operations returned Result.retry(), the whole worker should retry.
-                // For now, assume success unless an exception is thrown.
                 Result.success()
 
             } catch (e: Exception) {
                 Log.e(TAG, "SyncPendingWorker failed", e)
-                Result.retry() // Retry the entire worker if any critical error occurs
+                Result.retry()
             }
         }
     }
@@ -77,11 +79,9 @@ class SyncPendingWorker @AssistedInject constructor(
     private suspend fun processNotes(pendingNotes: List<NoteEntity>) {
         for (localNote in pendingNotes) {
             try {
-                // 1. Fetch remote state for this note
                 val remoteNoteDto = firestoreSource.getNote(workspaceId, localNote.id)
 
                 if (remoteNoteDto != null) {
-                    // Conflict detection logic
                     val conflictType = ConflictDetector.detect(
                         localVersion = localNote.localVersion,
                         remoteVersionAtLocal = localNote.remoteVersion,
@@ -90,12 +90,10 @@ class SyncPendingWorker @AssistedInject constructor(
 
                     when (conflictType) {
                         ConflictType.STALE, ConflictType.NO_CHANGE -> {
-                            // If remote is same or older, push local change
                             pushLocalNote(localNote)
                         }
 
                         ConflictType.REMOTE_ADVANCED -> {
-                            // Remote is ahead, safe to apply remote if not deleted
                             if (remoteNoteDto.deleted) {
                                 noteDao.deleteById(localNote.id)
                             } else {
@@ -104,7 +102,6 @@ class SyncPendingWorker @AssistedInject constructor(
                         }
 
                         ConflictType.LOCAL_ADVANCED -> {
-                            // Local change is ahead, push it.
                             pushLocalNote(localNote)
                         }
 
@@ -188,41 +185,6 @@ class SyncPendingWorker @AssistedInject constructor(
         }
     }
 
-    private suspend fun processNoteImages(pendingNoteImages: List<NoteImageEntity>) {
-//        for (localImage in pendingNoteImages) {
-//            try {
-//                // Fetch remote state for this image
-//                val remoteImageDto = firestoreSource.getNoteImage(workspaceId, localImage.noteId, localImage.id)
-//
-//                if (remoteImageDto != null) {
-//                    // LAST WRITE WINS but ignore stale
-//                    if (remoteImageDto.remoteVersion > localImage.remoteVersion) {
-//                        val remoteImage = remoteImageDto.toEntity(SyncStatus.SYNCED)
-//                        if (remoteImage.deleted) {
-//                            noteImageDao.deleteById(remoteImage.id)
-//                        } else {
-//                            val updatedLocalImage = remoteImage.copy(
-//                                localVersion = localImage.localVersion,
-//                                syncStatus = localImage.syncStatus
-//                            )
-//                            noteImageDao.upsert(updatedLocalImage)
-//                        }
-//                    } else {
-//                        // Remote is not ahead, push local change
-//                        pushLocalNoteImage(localImage)
-//                    }
-//                } else {
-//                    // Remote image doesn't exist, push local change
-//                    pushLocalNoteImage(localImage)
-//                }
-//            } catch (e: Exception) {
-//                Log.e(TAG, "Error processing note image ${localImage.id}", e)
-//                noteImageDao.updateSyncStatus(localImage.id, SyncStatus.ERROR)
-//            }
-//        }
-    }
-
-    // Helper to push local note changes
     private suspend fun pushLocalNote(note: NoteEntity) {
         try {
             val noteToPush = note.copy(remoteVersion = note.remoteVersion + 1)
@@ -230,11 +192,10 @@ class SyncPendingWorker @AssistedInject constructor(
             noteDao.upsert(noteToPush.copy(syncStatus = SyncStatus.SYNCED, localVersion = 0))
         } catch (e: Exception) {
             Log.e(TAG, "Failed to push note ${note.id} to remote", e)
-            noteDao.updateSyncStatus(note.id, SyncStatus.ERROR) // Mark as error to retry
+            noteDao.updateSyncStatus(note.id, SyncStatus.ERROR)
         }
     }
 
-    // Helper to push local grid element changes
     private suspend fun pushLocalGridElement(element: GridElementEntity) {
         try {
             val elementToPush = element.copy(remoteVersion = element.remoteVersion + 1)
@@ -248,27 +209,6 @@ class SyncPendingWorker @AssistedInject constructor(
         } catch (e: Exception) {
             Log.e(TAG, "Failed to push grid element ${element.id} to remote", e)
             gridElementDao.updateSyncStatus(element.id, SyncStatus.ERROR)
-        }
-    }
-
-    // Helper to push local note image changes
-    private suspend fun pushLocalNoteImage(image: NoteImageEntity) {
-        try {
-            val remoteVersionBeforePush = image.remoteVersion
-            val imageDto = image.toDto() // Convert Entity to DTO for Firestore
-
-            firestoreSource.upsertNoteImage(workspaceId, image.noteId, imageDto)
-
-            noteImageDao.upsert(
-                image.copy(
-                    syncStatus = SyncStatus.SYNCED,
-                    remoteVersion = remoteVersionBeforePush + 1,
-                    localVersion = 0
-                )
-            )
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to push note image ${image.id} to remote", e)
-            noteImageDao.updateSyncStatus(image.id, SyncStatus.ERROR)
         }
     }
 

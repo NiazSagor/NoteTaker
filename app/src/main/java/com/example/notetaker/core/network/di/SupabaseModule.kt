@@ -14,7 +14,6 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object SupabaseModule {
-    // TODO: move the url and key to secrets
     @Provides
     @Singleton
     fun providesSupabaseClient(): SupabaseClient {

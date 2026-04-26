@@ -27,16 +27,14 @@ import javax.inject.Singleton
 @Singleton
 class NoteRepositoryImpl @Inject constructor(
     private val noteDao: NoteDao,
-    private val conflictDao: ConflictDao,
     private val firestoreSource: FirestoreSource,
-    private val authRepository: AuthRepository,
     private val syncProcessor: SyncProcessor,
     private val syncManager: SyncManager,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     private val appScope: CoroutineScope
 ) : NoteRepository {
 
-    private val workspaceId = "global_workspace" // Assuming a single global workspace
+    private val workspaceId = "global_workspace"
     private val TAG = "NoteRepositoryImpl"
 
     init {
@@ -54,13 +52,13 @@ class NoteRepositoryImpl @Inject constructor(
     override suspend fun saveNote(note: NoteEntity) {
         // Local save first (optimistic update)
         noteDao.upsert(note)
-        syncManager.syncNote(note.id)
+        syncManager.syncNote()
     }
 
     override suspend fun softDeleteNote(id: String) {
         withContext(ioDispatcher) {
             noteDao.softDelete(id)
-            syncManager.syncNote(id)
+            syncManager.syncNote()
         }
     }
 

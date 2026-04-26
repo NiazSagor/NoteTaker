@@ -27,22 +27,25 @@ import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Processor responsible for synchronizing remote data with the local database.
+ *
+ * It handles incoming DTOs from Firestore, performs conflict detection based on
+ * versioning metadata (localVersion and remoteVersion), and updates the local DAOs
+ * accordingly. It manages specific sync logic for Notes, GridElements, and NoteImages,
+ * ensuring that local modifications and remote updates are reconciled according to
+ * defined conflict resolution strategies.
+ */
 @Singleton
 class SyncProcessor @Inject constructor(
     private val noteDao: NoteDao,
     private val gridElementDao: GridElementDao,
     private val noteImageDao: NoteImageDao,
     private val conflictDao: ConflictDao,
-    private val authRepository: AuthRepository,
-    private val conflictRepository: ConflictRepository, // Inject ConflictRepository for saving conflicts
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
-    private val appScope: CoroutineScope // Application scope for background tasks
 ) {
+    private val workspaceId = "global_workspace"
 
-    private val TAG = "SyncProcessor"
-    private val workspaceId = "global_workspace" // Hardcoded for now
-
-    // Updated to accept NoteDto and use its toEntity mapping
     suspend fun syncRemoteNote(remoteNoteDto: NoteDto) {
         withContext(ioDispatcher) {
             val localNote = noteDao.getNote(remoteNoteDto.id)
@@ -63,11 +66,6 @@ class SyncProcessor @Inject constructor(
                     remoteVersionAtLocal = localNote.remoteVersion,
                     incomingRemoteVersion = remoteNote.remoteVersion
                 )
-
-                Log.e(TAG, "syncRemoteNote: localNote.remoteVersion ${localNote.remoteVersion}", )
-                Log.e(TAG, "syncRemoteNote: localNote.localVersion ${localNote.localVersion}", )
-                Log.e(TAG, "syncRemoteNote: remoteNote remoteVersion = ${remoteNote.remoteVersion}", )
-                Log.e(TAG, "syncRemoteNote: conflictType $conflictType", )
 
                 when (conflictType) {
                     ConflictType.STALE, ConflictType.NO_CHANGE -> {

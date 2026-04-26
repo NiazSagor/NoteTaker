@@ -23,6 +23,12 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.withContext
 
+/**
+ * A [CoroutineWorker] responsible for uploading note images to Supabase storage.
+ *
+ * It handles both single-image uploads (via specific imageId) and bulk uploads of all
+ * pending images. Upon successful upload, it updates the local database with the remote URL.
+ */
 @HiltWorker
 class UploadWorker @AssistedInject constructor(
     @Assisted private val appContext: Context,

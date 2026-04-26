@@ -1,7 +1,6 @@
 package com.example.notetaker.core.data.repository
 
 import android.util.Log
-import com.example.notetaker.core.data.db.dao.ConflictDao
 import com.example.notetaker.core.data.db.dao.NoteImageDao
 import com.example.notetaker.core.data.db.entity.NoteImageEntity
 import com.example.notetaker.core.data.sync.SyncManager
@@ -21,7 +20,6 @@ import javax.inject.Singleton
 @Singleton
 class NoteImageRepositoryImpl @Inject constructor(
     private val noteImageDao: NoteImageDao,
-    private val conflictDao: ConflictDao,
     private val firestoreSource: FirestoreSource,
     private val syncProcessor: SyncProcessor,
     private val syncManager: SyncManager,
@@ -46,10 +44,8 @@ class NoteImageRepositoryImpl @Inject constructor(
 
     override suspend fun saveNoteImage(image: NoteImageEntity) {
         withContext(ioDispatcher) {
-            // Local save first (optimistic update)
             noteImageDao.upsert(image)
             syncManager.syncNoteImage(image.id)
-            // TODO: we need to update the remote image url after image upload 
         }
     }
 
@@ -62,10 +58,7 @@ class NoteImageRepositoryImpl @Inject constructor(
 
     override suspend fun saveNoteImages(images: List<NoteImageEntity>) {
         withContext(ioDispatcher) {
-            // Local save first
             noteImageDao.upsertAll(images)
-
-            // Sync each image via WorkManager
             images.forEach { image ->
                 syncManager.syncNoteImage(image.id)
             }

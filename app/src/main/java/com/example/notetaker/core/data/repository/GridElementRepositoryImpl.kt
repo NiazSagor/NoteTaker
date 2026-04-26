@@ -1,9 +1,7 @@
 package com.example.notetaker.core.data.repository
 
 import android.util.Log
-import com.example.notetaker.core.data.db.dao.ConflictDao
 import com.example.notetaker.core.data.db.dao.GridElementDao
-import com.example.notetaker.core.data.db.dao.NoteImageDao
 import com.example.notetaker.core.data.db.entity.GridElementEntity
 import com.example.notetaker.core.data.sync.SyncManager
 import com.example.notetaker.core.data.sync.SyncProcessor
@@ -23,17 +21,14 @@ import javax.inject.Singleton
 @Singleton
 class GridElementRepositoryImpl @Inject constructor(
     private val gridElementDao: GridElementDao,
-    private val conflictDao: ConflictDao,
     private val firestoreSource: FirestoreSource,
     private val syncProcessor: SyncProcessor,
     private val syncManager: SyncManager,
-    private val noteImageDao: NoteImageDao,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
-    private val appScope: CoroutineScope // Inject application-scoped CoroutineScope
+    private val appScope: CoroutineScope
 ) : GridElementRepository {
 
     private val workspaceId = "global_workspace"
-    private val TAG = "GridElementRepoImpl"
 
     init {
         observeRemoteGridElements()
@@ -53,14 +48,14 @@ class GridElementRepositoryImpl @Inject constructor(
         withContext(ioDispatcher) {
             // Local save first
             gridElementDao.upsert(element)
-            syncManager.syncGridElement(element.id)
+            syncManager.syncGridElement()
         }
     }
 
     override suspend fun softDeleteGridElement(id: String) {
         withContext(ioDispatcher) {
             gridElementDao.softDelete(id)
-            syncManager.syncGridElement(id)
+            syncManager.syncGridElement()
         }
     }
 
@@ -70,28 +65,11 @@ class GridElementRepositoryImpl @Inject constructor(
                 .flowOn(ioDispatcher)
                 .onEach { remoteElements ->
                     remoteElements.forEach { remoteElement ->
-                        Log.e(TAG, "observeRemoteGridElements: $remoteElement")
                         syncProcessor.syncRemoteGridElement(remoteElement)
                     }
                 }
                 .catch { e ->
-                    Log.e(TAG, "Error observing remote grid elements", e)
-                }
-                .launchIn(appScope)
-        }
-    }
-
-    private fun observeRemoteNoteImages(noteId: String) {
-        appScope.launch {
-            firestoreSource.observeNoteImages(workspaceId, noteId)
-                .flowOn(ioDispatcher)
-                .onEach { remoteImages ->
-                    remoteImages.forEach { remoteImage ->
-                        syncProcessor.syncRemoteNoteImage(remoteImage)
-                    }
-                }
-                .catch { e ->
-                    Log.e(TAG, "Error observing remote note images for note $noteId", e)
+                    Log.e("GridRepository", "Error observing remote grid elements", e)
                 }
                 .launchIn(appScope)
         }

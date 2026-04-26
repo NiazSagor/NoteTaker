@@ -8,15 +8,22 @@ import androidx.work.CoroutineWorker
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
-import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import androidx.work.workDataOf
 import com.example.notetaker.core.data.db.dao.NoteImageDao
 import com.example.notetaker.core.domain.model.SyncStatus
 import com.example.notetaker.core.network.firebase.FirestoreSource
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 
+/**
+ * A [CoroutineWorker] responsible for synchronizing a specific note image with the remote Firestore database.
+ *
+ * This worker handles the "push" logic for images, incrementing the remote version and updating
+ * the local sync status upon success. It is designed to be triggered when a local image is created or modified.
+ *
+ * @property firestore The remote data source for Firestore operations.
+ * @property noteImageDao The local Data Access Object for note image persistence.
+ */
 @HiltWorker
 class SyncNoteImageWorker @AssistedInject constructor(
     @Assisted context: Context,
@@ -49,7 +56,6 @@ class SyncNoteImageWorker @AssistedInject constructor(
     }
 
     companion object {
-
         fun createWorkRequest(imageId: String): androidx.work.OneTimeWorkRequest {
             return OneTimeWorkRequestBuilder<SyncNoteImageWorker>()
                 .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)

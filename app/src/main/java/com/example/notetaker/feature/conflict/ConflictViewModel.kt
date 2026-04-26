@@ -40,7 +40,7 @@ class ConflictViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val noteId: String =
-        checkNotNull(savedStateHandle["noteId"]) // Assuming noteId is passed via navigation
+        checkNotNull(savedStateHandle["noteId"])
 
     private val _uiState = MutableStateFlow(ConflictUiState())
     val uiState: StateFlow<ConflictUiState> = _uiState.asStateFlow()
