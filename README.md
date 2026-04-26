@@ -307,7 +307,7 @@ app/
 │
 ├── :core:network
 │   ├── firebase/        ← Firestore, Auth
-│   └── cloudinary/      ← Image upload
+│   └── supabase/      ← Image upload
 │
 ├── :core:ui
 │   ├── theme/           ← MaterialTheme
@@ -328,7 +328,7 @@ app/
 - Android Studio Hedgehog+
 - Kotlin 1.9+
 - Firebase project with Firestore enabled
-- Cloudinary free account (no credit card required)
+- Supabase free account (no credit card required)
 
 ### Setup
 
@@ -343,14 +343,11 @@ app/
    - Enable Firestore and Anonymous Auth
    - Download `google-services.json` → place in `app/`
 
-3. **Cloudinary Setup**
-   - Sign up at cloudinary.com (free tier)
-   - Create unsigned upload preset
+3. **Supabase Setup**
+   - Sign up at supabase.com (free tier)
+   - Create a bucket
+   - Get a anon key
    - Add to `local.properties`:
-     ```
-     CLOUDINARY_CLOUD_NAME=your_cloud_name
-     CLOUDINARY_UPLOAD_PRESET=your_preset
-     ```
 
 4. **Build & Run**
    ```
@@ -360,42 +357,12 @@ app/
 
 ---
 
-## 🧪 Testing the Advanced Features
-
-### Test Conflict Detection
-1. Open app on Device A & B with same workspace
-2. Edit same note on both simultaneously
-3. Go Device A offline, make changes
-4. Reconnect → conflict dialog appears with diff
-5. Try all 3 resolution options
-
-### Test Real-Time Sync
-1. Create note on Device A
-2. Instantly appears on Device B (if online)
-3. Edit on B while A is offline
-4. A reconnects → sees changes in real-time
-
-### Test 3-Finger Rotation
-1. Add image to note
-2. Place 3 fingers on image simultaneously
-3. Rotate fingers around center → image rotates
-4. Lift any finger → saves rotation
-5. Refresh note → rotation persists
-
-### Test Fractional Indexing
-1. Create 5 notes
-2. Reorder 50+ times between same 2 tiles
-3. Export DB to verify no corruption
-4. Check Firestore indices are unique
-
----
-
 ## 📚 Key Architecture Decisions
 
 - **Room + Firestore:** Room is always the source of truth. Firestore changes are applied to Room, never read directly.
 - **Optimistic Writes:** Changes write to Room immediately, UI updates instantly, then syncs to Firestore.
 - **No CRDT:** Manual conflict resolution UI required (not automatic CRDTs). Users always see and choose.
-- **Cloudinary over Firebase Storage:** No paid plan required, free 25GB storage + bandwidth.
+- **Supabase over Firebase Storage:** No paid plan required.
 - **Fractional Indexing:** Scales to unlimited reorders without migration or corruption.
 - **3-Finger Gestures:** Unique rotation control that doesn't conflict with system gestures.
 
@@ -407,7 +374,7 @@ app/
 |-------|----------|
 | Changes not syncing | Check network, verify Firestore rules allow read/write |
 | Conflict dialog appears repeatedly | Device clocks out of sync, or heavy concurrent editing |
-| Images not loading | Verify Cloudinary credentials in local.properties |
+| Images not loading | Verify Supabase credentials in local.properties |
 | Rotation resets on app restart | SavedStateHandle should persist—check ViewModel scope |
 | Grid tiles jumping positions | Fractional index gap exhausted—check WorkManager logs |
 
