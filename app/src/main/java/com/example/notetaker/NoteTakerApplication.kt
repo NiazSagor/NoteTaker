@@ -4,6 +4,7 @@ import android.app.Application
 import android.util.Log
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
+import com.example.notetaker.core.data.sync.SyncPendingWorker
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
@@ -21,5 +22,6 @@ class NoteTakerApplication : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
         Log.d("NoteTakerApp", "Application initialized.")
+        SyncPendingWorker.enqueue(this)
     }
 }
