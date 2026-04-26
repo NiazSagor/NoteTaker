@@ -7,16 +7,20 @@ import com.example.notetaker.core.domain.model.GridElementWithContent
 
 data class GridElementWithContent(
     @Embedded val element: GridElementEntity,
+
     @Relation(
+        entity = NoteEntity::class,
         parentColumn = "noteId",
         entityColumn = "id"
     )
-    val note: NoteEntity?
+    val noteWithImages: NoteWithImages?
 ) {
     fun toDomain(): GridElementWithContent {
         return GridElementWithContent(
             element = element.toDomain(),
-            note = note?.toDomain()
+            note = noteWithImages?.note?.toDomain()?.copy(
+                images = noteWithImages.images.map { it.toDomain() }
+            )
         )
     }
 }

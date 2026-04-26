@@ -15,6 +15,7 @@ data class Note(
     val lastEditedBy: String,
     val remoteVersion: Int,
     val syncStatus: SyncStatus,
+    val images: List<NoteImage> = emptyList(),
     val deleted: Boolean
 ) {
     fun toEntity(localVersion: Int = 0): NoteEntity {

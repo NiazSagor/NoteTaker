@@ -92,7 +92,7 @@ class ConflictViewModel @Inject constructor(
     }
 
     private fun resolveConflict(conflictId: String, strategy: ResolutionStrategy) {
-        val userId = "NIAZ"/*uiState.value.userId ?: return*/
+        val userId = uiState.value.userId ?: return
         viewModelScope.launch {
             resolveConflictUseCase(ResolveConflictParams(conflictId, noteId, strategy, userId))
         }

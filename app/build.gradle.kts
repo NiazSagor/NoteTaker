@@ -26,8 +26,8 @@ android {
 
         buildConfigField(
             "String",
-            "IMAGEKIT_PRIVATE_KEY",
-            "\"${project.findProperty("IMAGEKIT_PRIVATE_KEY")}\""
+            "SUPABASE_API",
+            "\"${project.findProperty("SUPABASE_API")}\""
         )
     }
 
@@ -116,4 +116,7 @@ dependencies {
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-database")
+    implementation(platform("io.github.jan-tennert.supabase:bom:3.1.0"))
+    implementation("io.github.jan-tennert.supabase:storage-kt")
+    implementation("io.ktor:ktor-client-android:3.0.3")
 }

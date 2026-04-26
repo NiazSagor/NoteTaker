@@ -7,6 +7,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.notetaker.feature.auth.AuthScreen
+import com.example.notetaker.feature.auth.AuthViewModel
 import com.example.notetaker.feature.editor.NoteEditorScreen
 import com.example.notetaker.feature.editor.NoteEditorViewModel
 import com.example.notetaker.feature.workspace.WorkspaceScreen
@@ -16,7 +18,21 @@ import com.example.notetaker.feature.workspace.WorkspaceViewModel
 fun MainNavigation() {
     val navController = rememberNavController()
 
-    NavHost(navController = navController, startDestination = "workspace") {
+    NavHost(navController = navController, startDestination = "auth") {
+
+        composable("auth") {
+            val viewModel: AuthViewModel = hiltViewModel()
+
+            AuthScreen(
+                viewModel = viewModel,
+                onSignedIn = {
+                    navController.navigate("workspace") {
+                        popUpTo("auth") { inclusive = true }
+                    }
+                }
+            )
+        }
+
         composable("workspace") {
             val viewModel: WorkspaceViewModel = hiltViewModel()
             WorkspaceScreen(

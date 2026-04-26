@@ -1,22 +1,22 @@
 package com.example.notetaker.feature.workspace
 
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.foundation.clickable
+import android.util.Log
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -39,16 +39,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.example.notetaker.core.domain.model.GridElementType
 import com.example.notetaker.core.domain.model.GridElementWithContent
@@ -60,7 +63,6 @@ fun WorkspaceScreen(
     onNoteClick: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val gridState = rememberLazyGridState()
     val navigateToNoteEditor by viewModel.navigateToNoteEditor.collectAsState(initial = null)
     LaunchedEffect(navigateToNoteEditor) {
         navigateToNoteEditor?.let { noteId ->
@@ -70,12 +72,9 @@ fun WorkspaceScreen(
         }
     }
 
-    var draggedItemIndex by remember { mutableStateOf<Int?>(null) }
-    var dragOffset by remember { mutableStateOf(Offset.Zero) }
-
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("NoteTaker Workspace") })
+            TopAppBar(title = { Text("Workspace") })
         },
         floatingActionButton = {
             FloatingActionButton(onClick = { viewModel.onEvent(WorkspaceEvent.OnCreateNote) }) {
@@ -88,121 +87,69 @@ fun WorkspaceScreen(
                 CircularProgressIndicator()
             }
         } else {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                state = gridState,
+            WorkspaceGrid(
+                viewModel = viewModel,
+                onElementClick = onNoteClick,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .pointerInput(uiState.gridElements) {
+            )
+        }
+    }
+}
+
+
+@Composable
+fun WorkspaceGrid(
+    viewModel: WorkspaceViewModel,
+    modifier: Modifier,
+    onElementClick: (String) -> Unit // Handle the click here
+) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    var draggedItemId by remember { mutableStateOf<String?>(null) }
+
+    LazyVerticalStaggeredGrid(
+        columns = StaggeredGridCells.Fixed(2),
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalItemSpacing = 8.dp
+    ) {
+        items(
+            items = state.gridElements,
+            key = { it.element.id }
+        ) { wrapper ->
+            val isDragging = draggedItemId == wrapper.element.id
+
+            WorkspaceTile(
+                elementWithContent = wrapper,
+                isDragging = isDragging,
+                onClick = { onElementClick(wrapper.note?.id!!) }, // Pass the missing parameter
+                onBoundsChanged = { rect ->
+                    viewModel.updateItemBounds(wrapper.element.id, rect)
+                },
+                modifier = Modifier
+                    .animateItem()
+                    .pointerInput(wrapper.element.id) {
                         detectDragGesturesAfterLongPress(
-                            onDragStart = { offset ->
-                                gridState.layoutInfo.visibleItemsInfo
-                                    .firstOrNull { item ->
-                                        offset.x.toInt() in item.offset.x..(item.offset.x + item.size.width) &&
-                                                offset.y.toInt() in item.offset.y..(item.offset.y + item.size.height)
-                                    }
-                                    ?.let { draggedItemIndex = it.index }
-                            },
-                            onDrag = { change, dragAmount ->
-                                change.consume()
-                                dragOffset += dragAmount
-                            },
+                            onDragStart = { draggedItemId = wrapper.element.id },
                             onDragEnd = {
-                                val fromIndex = draggedItemIndex
-                                if (fromIndex != null) {
-                                    val draggedItemInfo = gridState.layoutInfo.visibleItemsInfo
-                                        .firstOrNull { it.index == fromIndex }
-
-                                    if (draggedItemInfo != null) {
-                                        val finalPos = Offset(
-                                            draggedItemInfo.offset.x.toFloat() + dragOffset.x + (draggedItemInfo.size.width / 2),
-                                            draggedItemInfo.offset.y.toFloat() + dragOffset.y + (draggedItemInfo.size.height / 2)
-                                        )
-
-                                        val targetItem =
-                                            gridState.layoutInfo.visibleItemsInfo.firstOrNull { item ->
-                                                finalPos.x.toInt() in item.offset.x..(item.offset.x + item.size.width) &&
-                                                        finalPos.y.toInt() in item.offset.y..(item.offset.y + item.size.height)
-                                            }
-
-                                        if (targetItem != null && targetItem.index != fromIndex) {
-                                            val elements = uiState.gridElements
-                                            val targetIdx = targetItem.index
-
-                                            val newIndex = when {
-                                                targetIdx == 0 -> {
-                                                    elements[0].element.orderIndex / 2.0
-                                                }
-
-                                                targetIdx == elements.lastIndex -> {
-                                                    elements.last().element.orderIndex + 1.0
-                                                }
-
-                                                else -> {
-                                                    val prevIdx =
-                                                        if (targetIdx > fromIndex) targetIdx else targetIdx - 1
-                                                    val nextIdx =
-                                                        if (targetIdx > fromIndex) targetIdx + 1 else targetIdx
-
-                                                    val prev = elements[prevIdx].element.orderIndex
-                                                    val next =
-                                                        elements.getOrNull(nextIdx)?.element?.orderIndex
-                                                            ?: (prev + 1.0)
-                                                    (prev + next) / 2.0
-                                                }
-                                            }
-                                            viewModel.onEvent(
-                                                WorkspaceEvent.OnReorder(
-                                                    elements[fromIndex].element.id,
-                                                    newIndex
-                                                )
-                                            )
-                                        }
-                                    }
-                                }
-                                draggedItemIndex = null
-                                dragOffset = Offset.Zero
+                                draggedItemId = null
+                                viewModel.onDragEnd(wrapper.element.id)
                             },
-                            onDragCancel = {
-                                draggedItemIndex = null
-                                dragOffset = Offset.Zero
+                            onDragCancel = { draggedItemId = null },
+                            onDrag = { change, _ ->
+                                // Safe access to bounds for coordinate transformation
+                                viewModel.getItemBounds(wrapper.element.id)?.let { rect ->
+                                    viewModel.onDragMove(
+                                        draggedId = wrapper.element.id,
+                                        fingerPosition = change.position + rect.topLeft
+                                    )
+                                }
                             }
                         )
-                    },
-                contentPadding = PaddingValues(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                itemsIndexed(
-                    uiState.gridElements,
-                    key = { _, it -> it.element.id }) { index, item ->
-                    val isDragging = index == draggedItemIndex
-                    val elevation by animateDpAsState(if (isDragging) 8.dp else 2.dp)
-
-                    WorkspaceTile(
-                        elementWithContent = item,
-                        modifier = Modifier
-                            .aspectRatio(1f)
-                            .zIndex(if (isDragging) 1f else 0f)
-                            .graphicsLayer {
-                                if (isDragging) {
-                                    translationX = dragOffset.x
-                                    translationY = dragOffset.y
-                                    scaleX = 1.05f
-                                    scaleY = 1.05f
-                                }
-                            }
-                            .shadow(elevation, RoundedCornerShape(8.dp))
-                            .clip(RoundedCornerShape(8.dp)),
-                        onClick = {
-                            if (item.element.type == GridElementType.NOTE) {
-                                item.element.noteId?.let { onNoteClick(it) }
-                            }
-                        }
-                    )
-                }
-            }
+                    }
+            )
         }
     }
 }
@@ -211,21 +158,46 @@ fun WorkspaceScreen(
 fun WorkspaceTile(
     elementWithContent: GridElementWithContent,
     modifier: Modifier = Modifier,
+    isDragging: Boolean,
+    onBoundsChanged: (Rect) -> Unit,
     onClick: () -> Unit
 ) {
     val element = elementWithContent.element
+    val note = elementWithContent.note
+    val shape = RoundedCornerShape(12.dp)
 
     Card(
+        onClick = onClick,
+        shape = shape,
         modifier = modifier
             .fillMaxWidth()
-            .clickable { onClick() },
+            .onGloballyPositioned { coords ->
+                onBoundsChanged(coords.boundsInWindow())
+            }
+            .graphicsLayer {
+                val scale = if (isDragging) 1.05f else 1f
+                scaleX = scale
+                scaleY = scale
+                alpha = if (isDragging) 0.8f else 1f
+                shadowElevation = if (isDragging) 12f else 2f
+                this.shape = shape
+                this.clip = true
+            },
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         when (element.type) {
             GridElementType.NOTE -> {
+                val imageUrl = elementWithContent.note?.images
+                    ?.firstOrNull()
+                    ?.remoteImageUrl
+                    ?: elementWithContent.note?.images
+                        ?.firstOrNull()
+                        ?.localImageUri
+
                 NoteTileContent(
                     title = elementWithContent.note?.title ?: "Untitled",
-                    content = elementWithContent.note?.content ?: ""
+                    content = elementWithContent.note?.content ?: "",
+                    imageUrl = imageUrl
                 )
             }
 
@@ -237,24 +209,59 @@ fun WorkspaceTile(
         }
     }
 }
-
 @Composable
-fun NoteTileContent(title: String, content: String) {
-    Column(modifier = Modifier.padding(12.dp)) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = content,
-            style = MaterialTheme.typography.bodySmall,
-            maxLines = 4,
-            overflow = TextOverflow.Ellipsis
-        )
+fun NoteTileContent(
+    title: String?,
+    content: String?,
+    imageUrl: String?
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (imageUrl != null) {
+            AsyncImage(
+                model = imageUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.6f)
+                            )
+                        )
+                    )
+            )
+        }
+
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(10.dp)
+        ) {
+
+            if (!title.isNullOrBlank()) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White,
+                    maxLines = 1
+                )
+            }
+
+            if (!content.isNullOrBlank()) {
+                Text(
+                    text = content,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White,
+                    maxLines = 2
+                )
+            }
+        }
     }
 }
 

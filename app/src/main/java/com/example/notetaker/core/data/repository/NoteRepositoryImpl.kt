@@ -33,14 +33,17 @@ class NoteRepositoryImpl @Inject constructor(
     private val syncProcessor: SyncProcessor,
     private val syncManager: SyncManager,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
-    private val appScope: CoroutineScope // Injected application-scoped CoroutineScope
+    private val appScope: CoroutineScope
 ) : NoteRepository {
 
     private val workspaceId = "global_workspace" // Assuming a single global workspace
     private val TAG = "NoteRepositoryImpl"
 
+    init {
+        observeRemoteNotes()
+    }
+
     override fun observeNote(id: String): Flow<Note?> {
-        observeRemoteNotes(id)
         return noteDao.observeNote(id).map { it?.toDomain() }
     }
 
@@ -52,7 +55,6 @@ class NoteRepositoryImpl @Inject constructor(
         // Local save first (optimistic update)
         noteDao.upsert(note)
         syncManager.syncNote(note.id)
-        // TODO:  syncStatus appears = PENDING in firestore
     }
 
     override suspend fun softDeleteNote(id: String) {
@@ -62,17 +64,34 @@ class NoteRepositoryImpl @Inject constructor(
         }
     }
 
-    private fun observeRemoteNotes(id: String) {
+    private fun observeRemoteNotes() {
         appScope.launch {
-            firestoreSource.observeNote(workspaceId, id)
+            firestoreSource.observeNotes(workspaceId)
                 .flowOn(ioDispatcher)
-                .onEach { remoteNote ->
-                    remoteNote?.let {
-                        syncProcessor.syncRemoteNote(remoteNote)
+                .onEach { remoteNotes ->
+                    remoteNotes.forEach {
+                        syncProcessor.syncRemoteNote(it)
+                        observeRemoteNoteImages(it.id)
                     }
                 }
                 .catch { e ->
                     Log.e(TAG, "Error observing remote notes", e)
+                }
+                .launchIn(appScope)
+        }
+    }
+
+    private fun observeRemoteNoteImages(noteId: String) {
+        appScope.launch {
+            firestoreSource.observeNoteImages(workspaceId, noteId)
+                .flowOn(ioDispatcher)
+                .onEach { remoteImages ->
+                    remoteImages.forEach { remoteImage ->
+                        syncProcessor.syncRemoteNoteImage(remoteImage)
+                    }
+                }
+                .catch { e ->
+                    Log.e(TAG, "Error observing remote note images for note $noteId", e)
                 }
                 .launchIn(appScope)
         }

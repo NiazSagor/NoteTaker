@@ -14,9 +14,11 @@ interface GridElementDao {
     @Query("SELECT * FROM grid_elements WHERE workspaceId = :workspaceId AND deleted = 0 ORDER BY orderIndex ASC")
     fun observeGridElementsWithContent(workspaceId: String): Flow<List<GridElementWithContent>>
 
+    @Transaction
     @Query("SELECT * FROM grid_elements WHERE id = :id")
     suspend fun getById(id: String): GridElementEntity?
 
+    @Transaction
     @Upsert
     suspend fun upsert(element: GridElementEntity)
 
