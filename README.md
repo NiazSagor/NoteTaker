@@ -15,6 +15,8 @@ NoteTaker is a multi-user workspace where notes and images sync in real-time acr
 - ✅ Drag-and-drop assets into workspace
 - ✅ Concurrent note editing sessions
 
+[Watch demo](video/1.mp4)
+
 ---
 
 ## 🛠️ Tech Stack
